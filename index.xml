@@ -1,2 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="KRZYSIEK-REAPACK"/>
+<index version="1" name="BE WELL" commit="8d2e69173a8c69a8dab6e00960369d20e7359206">
+  <category name="KRZYSIEK-REAPACK">
+    <reapack name="KRZYSIEK - 2 FRAME FADES.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%202%20FRAME%20FADES.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - BG CUT.lua" type="script">
+      <version name="0.9" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20BG%20CUT.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - HANDLE GLUE.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20HANDLE%20GLUE.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - JUMP THROUGH CHANNELS.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20JUMP%20THROUGH%20CHANNELS.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - PLAYRATE TOGGLE.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20PLAYRATE%20TOGGLE.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - RECALL POSITION ON TIMELINE.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20RECALL%20POSITION%20ON%20TIMELINE.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - RENDER SELECTION TO RESAMPLE.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20RENDER%20SELECTION%20TO%20RESAMPLE.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - RENDERVAN.lua" type="script">
+      <version name="0.9" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20RENDERVAN.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - RESAMPLER.lua" type="script">
+      <version name="0.9" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20RESAMPLER.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - SAVE POSITION ON TIMELINE.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20SAVE%20POSITION%20ON%20TIMELINE.lua</source>
+      </version>
+    </reapack>
+    <reapack name="KRZYSIEK - TRUNCATE OR FILL.lua" type="script">
+      <version name="1.0" time="2024-11-18T08:25:40Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/8d2e69173a8c69a8dab6e00960369d20e7359206/KRZYSIEK-REAPACK/KRZYSIEK%20-%20TRUNCATE%20OR%20FILL.lua</source>
+      </version>
+    </reapack>
+  </category>
+</index>
