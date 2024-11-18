@@ -1,3 +1,7 @@
+--[[
+@version 0.1
+@noindex
+--]]
 function implodeToMultichannel()
     -- Get the selected items
     local selectedItems = reaper.CountSelectedMediaItems(0)

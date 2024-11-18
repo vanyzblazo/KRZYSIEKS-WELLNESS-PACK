@@ -1,3 +1,7 @@
+--[[
+@version 0.9
+--]]
+
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
 if reaper.file_exists( ultraschall_path ) then
   dofile( ultraschall_path )

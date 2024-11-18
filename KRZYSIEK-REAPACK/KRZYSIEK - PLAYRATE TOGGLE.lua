@@ -1,3 +1,6 @@
+--[[
+@version 1.0
+--]]
 local rate = reaper.Master_GetPlayRate()
 
 reaper.Undo_BeginBlock()

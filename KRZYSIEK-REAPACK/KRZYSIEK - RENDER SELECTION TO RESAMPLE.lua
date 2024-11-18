@@ -1,3 +1,7 @@
+--[[
+@version 1.0
+--]]
+
 -- Ensure REAPER is running with the required API version
 reaper.ClearConsole()
 

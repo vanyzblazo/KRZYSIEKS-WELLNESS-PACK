@@ -1,3 +1,6 @@
+--[[
+@version 1.0
+--]]
 -- Recall saved position from an extended state
 function RecallTimelinePosition()
     local scriptName = "SaveTimelinePosition"  -- Specify your script name here

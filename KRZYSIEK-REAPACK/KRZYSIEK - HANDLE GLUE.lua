@@ -1,3 +1,6 @@
+--[[
+@version 1.0
+--]]
 -- Created by Krzysiek Chodkiewicz --
 
 reaper.Main_OnCommand(41173, 0) -- move cursor to start of items

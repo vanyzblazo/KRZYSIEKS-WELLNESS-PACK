@@ -1,3 +1,7 @@
+--[[
+@version 1.0
+--]]
+
 item = reaper.GetSelectedMediaItem(0, 1)
 retval = reaper.TimeMap_curFrameRate(ReaProject)
 local d = twoFrame

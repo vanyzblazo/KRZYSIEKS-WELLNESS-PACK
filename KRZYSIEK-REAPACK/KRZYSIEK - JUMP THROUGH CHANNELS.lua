@@ -1,3 +1,7 @@
+--[[
+@version 1.0
+--]]
+
 local channelNumber 
 
 channelNumber = channelNumber + 1

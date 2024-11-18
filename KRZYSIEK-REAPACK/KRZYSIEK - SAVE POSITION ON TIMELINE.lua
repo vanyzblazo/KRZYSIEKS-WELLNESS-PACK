@@ -1,3 +1,7 @@
+--[[
+@version 1.0
+--]]
+
 -- Save current position to an extended state
 function SaveTimelinePosition()
     local scriptName = "SaveTimelinePosition"  -- Specify your script name here
