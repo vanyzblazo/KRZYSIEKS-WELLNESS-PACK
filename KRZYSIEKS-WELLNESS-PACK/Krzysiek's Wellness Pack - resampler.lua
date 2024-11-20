@@ -1,21 +1,26 @@
 --[[
-@version 1.0
+@noindex
+@version 0.9
 --]]
 
 -- Ensure REAPER is running with the required API version
 reaper.ClearConsole()
 
--- Function to unsolo all tracks
-function UnsoloAllTracks()
-    local num_tracks = reaper.CountTracks(0)
-    for i = 0, num_tracks - 1 do
-        local track = reaper.GetTrack(0, i)
-        reaper.SetMediaTrackInfo_Value(track, "I_SOLO", 0)
+-- Function to solo tracks with selected items
+function SoloTracksWithSelectedItems()
+    local num_items = reaper.CountSelectedMediaItems(0)
+    local tracks = {}
+    
+    for i = 0, num_items - 1 do
+        local item = reaper.GetSelectedMediaItem(0, i)
+        local track = reaper.GetMediaItem_Track(item)
+        tracks[track] = true
+    end
+    
+    for track, _ in pairs(tracks) do
+        reaper.SetMediaTrackInfo_Value(track, "I_SOLO", 1)
     end
 end
-
--- Function to unsolo all tracks (called at start)
-UnsoloAllTracks()
 
 -- Function to generate a unique render file name
 function GenerateUniqueRenderPath()
@@ -140,9 +145,9 @@ function CreateVirtualBus()
     return bus_track
 end
 
--- Function to route all tracks to the virtual bus
-function RouteTracksToBus(tracks, bus_track)
-    for track, _ in pairs(tracks) do
+-- Function to route all group tracks to the virtual bus
+function RouteGroupTracksToBus(group_tracks, bus_track)
+    for track, _ in pairs(group_tracks) do
         local num_channels = reaper.GetMediaTrackInfo_Value(track, "I_NCHAN")
         local send_id = reaper.CreateTrackSend(track, bus_track)
         reaper.SetTrackSendInfo_Value(track, 0, send_id, "I_SRCCHAN", (num_channels - 1) * 1024) -- Correct channel count
@@ -263,15 +268,28 @@ for i = 0, num_items - 1 do
     selected_tracks[track] = true
 end
 
+-- Get group tracks for the selected tracks
+local group_tracks = {}
+for track, _ in pairs(selected_tracks) do
+    local parent_track = reaper.GetParentTrack(track)
+    if parent_track then
+        group_tracks[parent_track] = true
+    else
+        group_tracks[track] = true
+    end
+end
+
 local channel_count = 2 -- Default to stereo
 if AreAllSelectedItemsMono() then
     channel_count = 1
 else
-    channel_count = GetHighestChannelCount(selected_tracks)
+    channel_count = GetHighestChannelCount(group_tracks)
 end
 
+SoloTracksWithSelectedItems()
+
 local bus_track = CreateVirtualBus()
-RouteTracksToBus(selected_tracks, bus_track)
+RouteGroupTracksToBus(group_tracks, bus_track)
 reaper.SetMediaTrackInfo_Value(bus_track, "I_NCHAN", channel_count)
 
 reaper.SetOnlyTrackSelected(bus_track) -- Select the virtual bus track before rendering
@@ -279,6 +297,7 @@ reaper.SetOnlyTrackSelected(bus_track) -- Select the virtual bus track before re
 local render_path = RenderTimeSelection(channel_count)
 ImportRenderedItem(render_path, selected_tracks, true) -- Avoid the last track if necessary
 
+reaper.Main_OnCommand(40340, 0) -- Unsolo all tracks
 reaper.DeleteTrack(bus_track)
 RestoreRenderSettings(saved_settings)
 

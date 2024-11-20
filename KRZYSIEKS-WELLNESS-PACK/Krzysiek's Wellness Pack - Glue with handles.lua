@@ -1,4 +1,5 @@
 --[[
+@noindex
 @version 1.0
 --]]
 -- Created by Krzysiek Chodkiewicz --
