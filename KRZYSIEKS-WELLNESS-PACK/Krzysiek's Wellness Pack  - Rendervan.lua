@@ -772,8 +772,8 @@ function nameRename(num_channels)
         return
     end
     --]]
-   
-    num_channels = tonumber(user_inputs) or 2 -- Default to stereo if invalid input
+    num_channels = num_channels or 2
+    --num_channels = tonumber(user_inputs) or 2 -- Default to stereo if invalid input
     --show_channel_input_popup = false
    
     -- Make sure we have a valid base name
