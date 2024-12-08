@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Krzysiek's Wellness Pack" commit="32050207cceb6e2ea17cee2eab41e09c3b35f207">
+<index version="1" name="Krzysiek's Wellness Pack" commit="efadc3ff6ebbe847b5b9cf01b9b9b4f5f82d1b93">
   <category name="KRZYSIEKS-WELLNESS-PACK">
     <reapack name="Krzysiek's Wellness Pack  - Rendervan.lua" type="script">
       <version name="0.9" time="2024-11-20T20:45:11Z">
         <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan.lua</source>
+      </version>
+      <version name="1.0" time="2024-12-08T19:15:04Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/efadc3ff6ebbe847b5b9cf01b9b9b4f5f82d1b93/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan.lua</source>
       </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - 2 frame fades.lua" type="script">
