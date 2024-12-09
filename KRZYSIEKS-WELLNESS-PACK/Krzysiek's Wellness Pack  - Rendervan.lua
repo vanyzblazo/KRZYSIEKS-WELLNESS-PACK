@@ -1,5 +1,5 @@
 --[[
-@version 1.0
+@version 1.01
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -49,6 +49,7 @@ local StyleManager = {
             [reaper.ImGui_Col_CheckMark()] = 0x0FA68AFF,
             [reaper.ImGui_Col_Tab()] = 0x333333FF,
             [reaper.ImGui_Col_TabHovered()] = 0x3B3B3BFF,
+
             [reaper.ImGui_Col_PopupBg()] = 0x4C4C4CFF
         },
         dynamic_colors = {
@@ -97,6 +98,8 @@ function table.keys(t)
     return keys
 end
 
+
+ 
 -- Initialize ImGui context
 local ctx = reaper.ImGui_CreateContext('RENDERVAN')
 if not ctx then
@@ -145,8 +148,10 @@ local finalPrefix = "" -- Make sure finalPrefix is defined globally
 local region_folder_map = {} -- Data structure to track folder items and regions
 local track_folder_map = {} -- Data structure to track folder items and tracks
 
+
 local filter_text = ""
 local filtered_items = {}
+
 
 -- INIT SETTINGS --------------------------------------------------------------------------------------------------------------------------
 
@@ -182,7 +187,7 @@ local selected_brickwall_limiter_index = 1 -- Default to Peak
 -- Render paths
 local pref_inner_render_folder = "Render"
 local use_inner_render_path = true
-    
+   
 local settings_file_path = reaper.GetResourcePath() .. '/Scripts/RenderSettings.csv'
 
 -----------------------------------------------------------------------------------------------------------------
@@ -213,7 +218,7 @@ function SaveSettingsToCSV()
         file:write("pref_inner_render_folder,", tostring(pref_inner_render_folder), "\n")
         file:write("use_inner_render_path,", tostring(use_inner_render_path), "\n")
         file:write("pref_variaton_start_number,", tostring(pref_variaton_start_number), "\n")
-                
+               
         file:close()
     end
 end
@@ -223,7 +228,9 @@ end
 -----------------------------------------------------------------------------------------------------------------
 
 function LoadSettingsFromCSV()
-    
+    local pref_variaton_start_number = 0
+    local use_inner_render_path = true
+   
     local file = io.open(settings_file_path, 'r')
     if file then
         for line in file:lines() do
@@ -450,6 +457,7 @@ function updateRenderQueue()
     end
 end
 
+
 -----------------------------------------------------------------------------------------------------------------
 ------------------------RENDER QUEUED REGIONS----------------------------
 -----------------------------------------------------------------------------------------------------------------
@@ -590,9 +598,11 @@ function renderQueuedRegions()
     restoreRenderSettings()
 end
 
+
 -----------------------------------------------------------------------------------------------------------------
------------------------- CLEAR TRACKED RENDER FLAG -------------------------
+------------------------ clearTrackedRenderFlag -------------------------
 -----------------------------------------------------------------------------------------------------------------
+
 
 function clearTrackedRenderFlags()
     for region_idx, track_flags in pairs(active_render_flags) do
@@ -619,6 +629,7 @@ function findRegionIndexByName(regionName)
     end
     return nil -- Return nil if no region with the given name is found
 end
+
 
 -----------------------------------------------------------------------------------------------------------------
 ----------------------SHOW CHANNEL INPUT WINDOW--------------------------
@@ -676,6 +687,7 @@ function detectFolderItemsAndRegions()
         return nameA < nameB
     end)
 end
+
 
 -----------------------------------------------------------------------------------------------------------------
 --------------------------UPDATE FOLDER ITEMS----------------------------
@@ -756,9 +768,11 @@ function adjustFolderItems()
     reaper.Undo_EndBlock("Adjust folder items", 0)
 end
 
+
 -----------------------------------------------------------------------------------------------------------------
 --------------------------RENAME EXISTING ITEMS--------------------------
 -----------------------------------------------------------------------------------------------------------------
+
 
 function nameRename(num_channels)
     --[[
@@ -769,8 +783,8 @@ function nameRename(num_channels)
         return
     end
     --]]
-    num_channels = num_channels or 2
-    --num_channels = tonumber(user_inputs) or 2 -- Default to stereo if invalid input
+   
+    num_channels = tonumber(user_inputs) or 2 -- Default to stereo if invalid input
     --show_channel_input_popup = false
    
     -- Make sure we have a valid base name
@@ -876,12 +890,12 @@ function nameRename(num_channels)
             -- Get the old name first
             local old_take = reaper.GetActiveTake(existing_folder_item)
             local _, old_name = reaper.GetSetMediaItemTakeInfo_String(old_take, "P_NAME", "", false)
-            
+           
             -- Get base names without numbers and the original number
             local old_base = old_name:gsub("_%d+$", "")
             local original_number = old_name:match("_(%d+)$")
             local new_name
-            
+           
             if old_base == base_name and original_number then
                 -- If renaming to same base name and we found the original number, keep it
                 new_name = base_name .. "_" .. original_number
@@ -890,7 +904,7 @@ function nameRename(num_channels)
                 local variation_number = findNextAvailableVariationNumber(base_name)
                 new_name = base_name .. variation_number
             end
-            
+           
             -- Find the existing region by old name
             local region_index = findRegionIndexByName(old_name)
            
@@ -919,9 +933,12 @@ function nameRename(num_channels)
     detectFolderItemsAndRegions()
 end
 
+
+
 -----------------------------------------------------------------------------------------------------------------
 ------------------------SHOULD UPDATE DETECTION--------------------------
 -----------------------------------------------------------------------------------------------------------------
+
 
 function shouldUpdateDetection()
     local current_change_count = reaper.GetProjectStateChangeCount(0)
@@ -931,6 +948,7 @@ function shouldUpdateDetection()
     end
     return false
 end
+
 
 -----------------------------------------------------------------------------------------------------------------
 ------------------------NEXT AVAILABLE NUMBER----------------------------
@@ -969,7 +987,7 @@ function findNextAvailableVariationNumber(base_name)
     while used_numbers[number] do
         number = number + 1
     end
-    
+   
     if renaming_to_same_name == true then
         number = number - 1
     end
@@ -977,9 +995,11 @@ function findNextAvailableVariationNumber(base_name)
     return string.format("_%02d", number)
 end
 
+
 -----------------------------------------------------------------------------------------------------------------
 ------------------------PREFERENCES WINDOW----------------------------
 -----------------------------------------------------------------------------------------------------------------
+
 
 function preferencesWindow()
     if not preferences_window then return end
@@ -987,7 +1007,7 @@ function preferencesWindow()
     StyleManager.PushStyle(ctx)
     local should_display
     should_display, preferences_window = reaper.ImGui_Begin(ctx, 'PREFERENCES', preferences_window, reaper.ImGui_WindowFlags_AlwaysAutoResize())
-    
+   
     if should_display then
         reaper.ImGui_Dummy(ctx, 0, 5)
         reaper.ImGui_Separator(ctx)
@@ -996,14 +1016,14 @@ function preferencesWindow()
         reaper.ImGui_PopFont(ctx)
         reaper.ImGui_Separator(ctx)
         reaper.ImGui_Dummy(ctx, 0, 5)
-        
+       
         changed, use_inner_render_path = reaper.ImGui_Checkbox(ctx, "##inner_path", use_inner_render_path)
         reaper.ImGui_SameLine(ctx)
         reaper.ImGui_Text(ctx, ":Project folder render path?:")
         reaper.ImGui_SameLine(ctx)
         reaper.ImGui_SetNextItemWidth(ctx, 85)
         _, pref_inner_render_folder = reaper.ImGui_InputText(ctx, "##project_folder_render_path", pref_inner_render_folder)
-        
+       
         changed, use_additional_render_path = reaper.ImGui_Checkbox(ctx, "##additional_path", use_additional_render_path)
 
         reaper.ImGui_SameLine(ctx)
@@ -1012,18 +1032,18 @@ function preferencesWindow()
         reaper.ImGui_SameLine(ctx)
         reaper.ImGui_Dummy(ctx, 12,0)
         reaper.ImGui_SameLine(ctx)
-        
+       
         if reaper.ImGui_Button(ctx, "Browse", 85) then
             local retval, path = reaper.JS_Dialog_BrowseForFolder(0, "Select Render Path")
             if retval then
                 additional_render_path = path
             end
         end
-        
+       
         reaper.ImGui_PushFont(ctx, small_font)
         reaper.ImGui_Text(ctx, "Path: " .. additional_render_path)
         reaper.ImGui_PopFont(ctx)
-        
+       
         reaper.ImGui_Dummy(ctx, 0, 5)
         reaper.ImGui_Separator(ctx)
         reaper.ImGui_PushFont(ctx, big_font)
@@ -1031,20 +1051,20 @@ function preferencesWindow()
         reaper.ImGui_PopFont(ctx)
         reaper.ImGui_Separator(ctx)
         reaper.ImGui_Dummy(ctx, 0, 5)
-        
+       
         reaper.ImGui_SetNextItemWidth(ctx, 100)
         _, pref_variaton_start_number = reaper.ImGui_InputInt(ctx, " :Variation start number", pref_variaton_start_number)
-        
+       
         reaper.ImGui_Dummy(ctx, 0, 5)
         reaper.ImGui_Separator(ctx)
         reaper.ImGui_Dummy(ctx, 0, 5)
-        
+       
         -- Save button
         if reaper.ImGui_Button(ctx, "Save Settings") then
             SaveSettingsToCSV()
             preferences_window = false
         end
-        
+       
         reaper.ImGui_End(ctx)
     end
     StyleManager.PopStyle(ctx)
@@ -1056,29 +1076,29 @@ end
 
 function itemMatchesFilter(item_name, filter)
     if filter == "" then return true end
-    
+   
     -- Convert both strings to lowercase for case-insensitive comparison
     local lower_name = string.lower(item_name)
     local lower_filter = string.lower(filter)
-    
+   
     -- Check if the filter is a continuous substring
     if string.find(lower_name, lower_filter, 1, true) then
         return true
     end
-    
+   
     -- Split filter into characters and check if they appear in sequence
     local filter_len = string.len(lower_filter)
     local name_len = string.len(lower_name)
     local j = 1 -- Position in name
     local i = 1 -- Position in filter
-    
+   
     while i <= filter_len and j <= name_len do
         if string.sub(lower_filter, i, i) == string.sub(lower_name, j, j) then
             i = i + 1
         end
         j = j + 1
     end
-    
+   
     return i > filter_len -- All filter characters were found in sequence
 end
 
@@ -1097,22 +1117,22 @@ function loop()
         StyleManager.PushStyle(ctx)
 
         local should_display
-  
+ 
         should_display, visible = reaper.ImGui_Begin(ctx, 'NAME / RENDER / BE WELL', visible, reaper.ImGui_WindowFlags_NoDocking())
 
         --reaper.ImGui_PushFont(ctx, normal_font)
-        
+       
         if should_display then
-        
+       
             -------------------------------------------------------------------------------------------------------------------------------------------
             ---------------------------SETTINGS
             -------------------------------------------------------------------------------------------------------------------------------------------
-            
+           
             reaper.ImGui_BeginChild(ctx, "SETTINGS", 350, 148, 0, reaper.ImGui_WindowFlags_None())
             reaper.ImGui_Indent(ctx, 8)
-            
+           
             reaper.ImGui_Dummy(ctx,0,4)
-            
+           
             reaper.ImGui_SetNextItemWidth(ctx, 100)
             changed, selected_bitdepth_index = reaper.ImGui_Combo(ctx, "##bitdepth", selected_bitdepth_index - 1, table.concat(render_bitdepths, "\0") .. "\0")
             selected_bitdepth_index = selected_bitdepth_index + 1
@@ -1127,11 +1147,11 @@ function loop()
             reaper.ImGui_SetNextItemWidth(ctx, 110)
             changed, selected_sample_rate_index = reaper.ImGui_Combo(ctx, "##samplerate", selected_sample_rate_index - 1, table.concat(render_sample_rates, "\0") .. "\0")
             selected_sample_rate_index = selected_sample_rate_index + 1
-            
+           
             reaper.ImGui_Dummy(ctx, 0, 0)
             reaper.ImGui_Separator(ctx)
             reaper.ImGui_Dummy(ctx, 0, 0)
-            
+           
             changed, normalize_render = reaper.ImGui_Checkbox(ctx, "##:NRMZ?:", normalize_render)
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_Dummy(ctx, 0, 0)
@@ -1140,16 +1160,16 @@ function loop()
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_Dummy(ctx, 0, 0)
 
-            
+           
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_SetNextItemWidth(ctx, 100)
             changed, normalization_volume = reaper.ImGui_SliderDouble(ctx, "##norm_vol", normalization_volume, -60, 0, "%.1f dB")
-            
+           
             -- Right-click for input
-            if reaper.ImGui_IsItemClicked(ctx, 1) then 
+            if reaper.ImGui_IsItemClicked(ctx, 1) then
                 reaper.ImGui_OpenPopup(ctx, "Edit Normalization Level")
             end
-            
+           
             if reaper.ImGui_BeginPopup(ctx, "Edit Normalization Level") then
                 -- Set width and focus for the input
                 reaper.ImGui_SetNextItemWidth(ctx, 50)
@@ -1157,28 +1177,28 @@ function loop()
                     reaper.ImGui_SetKeyboardFocusHere(ctx)
                     popup_initialized = true -- Ensure focus is set only once
                 end
-            
+           
                 -- Input for normalization level
                 input_changed, normalization_volume = reaper.ImGui_InputDouble(ctx, "##Normalization(dB)", normalization_volume)
-                
+               
                 if input_changed then
                     normalization_volume = normalization_volume
                 end
-            
+           
                 -- Detect Enter key
                 if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Enter()) then
                     reaper.ImGui_CloseCurrentPopup(ctx)
                     popup_initialized = false -- Reset for the next popup
                 end
-            
+           
                 reaper.ImGui_SameLine(ctx)
-            
+           
                 -- OK button
                 if reaper.ImGui_Button(ctx, "OK") then
                     reaper.ImGui_CloseCurrentPopup(ctx)
                     popup_initialized = false -- Reset for the next popup
                 end
-            
+           
                 reaper.ImGui_EndPopup(ctx)
             else
                 popup_initialized = false -- Ensure reset when popup is closed
@@ -1188,11 +1208,11 @@ function loop()
             reaper.ImGui_SetNextItemWidth(ctx, 110)
             changed, selected_normalization_index = reaper.ImGui_Combo(ctx, "##norm_type", selected_normalization_index - 1, table.concat(normalization_types, "\0") .. "\0")
             selected_normalization_index = selected_normalization_index + 1
-            
+           
             reaper.ImGui_Dummy(ctx, 0, 0)
             reaper.ImGui_Separator(ctx)
             reaper.ImGui_Dummy(ctx, 0, 0)
-            
+           
             changed, use_brickwall_limiter = reaper.ImGui_Checkbox(ctx, "##:LIMT?:", use_brickwall_limiter)
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_Dummy(ctx, 0, 0)
@@ -1200,16 +1220,16 @@ function loop()
             reaper.ImGui_Text(ctx, ":LIMT?:")
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_Dummy(ctx, 0, 0)
-            
+           
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_SetNextItemWidth(ctx, 100)
             changed, brickwall_limit_threshold_db = reaper.ImGui_SliderDouble(ctx, "##limit_thresh_db", brickwall_limit_threshold_db, -12, 0, "%.2f dB")
-            
+           
             -- Right-click for input
-            if reaper.ImGui_IsItemClicked(ctx, 1) then 
+            if reaper.ImGui_IsItemClicked(ctx, 1) then
                 reaper.ImGui_OpenPopup(ctx, "Edit Limiter Level")
             end
-            
+           
             if reaper.ImGui_BeginPopup(ctx, "Edit Limiter Level") then
                 -- Set width and focus for the input
                 reaper.ImGui_SetNextItemWidth(ctx, 50)
@@ -1217,102 +1237,103 @@ function loop()
                     reaper.ImGui_SetKeyboardFocusHere(ctx)
                     popup_initialized = true -- Ensure focus is set only once
                 end
-            
+           
                 -- Input for normalization level
                 input_changed, brickwall_limit_threshold_db = reaper.ImGui_InputDouble(ctx, "##Limiter(dB)", brickwall_limit_threshold_db)
-                
+               
                 if input_changed then
                     brickwall_limit_threshold_db = brickwall_limit_threshold_db
                 end
-            
+           
                 -- Detect Enter key
                 if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Enter()) then
                     reaper.ImGui_CloseCurrentPopup(ctx)
                     popup_initialized = false -- Reset for the next popup
                 end
-            
+           
                 reaper.ImGui_SameLine(ctx)
-            
+           
                 -- OK button
                 if reaper.ImGui_Button(ctx, "OK") then
                     reaper.ImGui_CloseCurrentPopup(ctx)
                     popup_initialized = false -- Reset for the next popup
                 end
-            
+           
                 reaper.ImGui_EndPopup(ctx)
             else
                 popup_initialized = false -- Ensure reset when popup is closed
             end
-            
+           
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_SetNextItemWidth(ctx, 110)
             changed, selected_brickwall_limiter_index = reaper.ImGui_Combo(ctx, "##limiter_type", selected_brickwall_limiter_index - 1, table.concat(brickwall_limiter_types, "\0") .. "\0")
             selected_brickwall_limiter_index = selected_brickwall_limiter_index + 1
            
             reaper.ImGui_EndChild(ctx)
-            
+           
             reaper.ImGui_SameLine(ctx)
-            
+           
+           
             -------------------------------------------------------------------------------------------------------------------------------------------
             ---------------------------BUTTONS
             -------------------------------------------------------------------------------------------------------------------------------------------
-            
-            reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FramePadding(), 0, 0) 
+           
+            reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FramePadding(), 0, 0)
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0xB84A62FF)
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xC55B73FF)
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0xA13B53FF)
 
-    
+   
             reaper.ImGui_BeginChild(ctx, "BUTTONS", 52, 148, 0, reaper.ImGui_WindowFlags_None())
             reaper.ImGui_Indent(ctx, 8)
-            
+           
             reaper.ImGui_Dummy(ctx,4,6)
-            
+           
             if reaper.ImGui_Button(ctx, 'RDR!',36,36) then
                 renderQueuedRegions()
             end
-            
+           
             reaper.ImGui_Dummy(ctx,0,10)
-            
+           
             if reaper.ImGui_Button(ctx, 'ADJ!',36,36) then
                 adjustFolderItems()
             end
-            
+           
             reaper.ImGui_Dummy(ctx,0,10)
-                        
+                       
             if reaper.ImGui_Button(ctx, "...", 36, 20) then
                 preferences_window = not preferences_window
             end
             reaper.ImGui_Unindent(ctx)
-            
+           
             reaper.ImGui_EndChild(ctx)
             reaper.ImGui_PopStyleColor(ctx, 3)
             reaper.ImGui_PopStyleVar(ctx)
             reaper.ImGui_Dummy(ctx,0,0)
-            
+           
             -------------------------------------------------------------------------------------------------------------------------------------------
             ---------------------------NAME
             -------------------------------------------------------------------------------------------------------------------------------------------
-            
+           
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0xB84A62FF)
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xC55B73FF)
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0xA13B53FF)
             reaper.ImGui_BeginChild(ctx, "NAME", 410, 50, 0, reaper.ImGui_WindowFlags_None())
-            
+           
             reaper.ImGui_Dummy(ctx,0,4)
             reaper.ImGui_Indent(ctx, 8)
             reaper.ImGui_AlignTextToFramePadding(ctx)
             reaper.ImGui_Text(ctx, "N:")
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_SetNextItemWidth(ctx, 260)
-            
+           
             if first_open then
                 reaper.ImGui_SetKeyboardFocusHere(ctx)
                 first_open = false
             end
-            
+           
             _, sound_name = reaper.ImGui_InputText(ctx, "##: NAME", sound_name)
-            
+           
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_Text(ctx, "CH:")
             reaper.ImGui_SameLine(ctx)
@@ -1326,23 +1347,23 @@ function loop()
             end
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_Unindent(ctx)
-            
+           
             reaper.ImGui_EndChild(ctx)
-            
+           
             reaper.ImGui_PopStyleColor(ctx, 3)
             reaper.ImGui_Dummy(ctx,0,0)
-            
+           
            -------------------------------------------------------------------------------------------------------------------------------------------
            ---------------------------TABLE HEADER
-           -------------------------------------------------------------------------------------------------------------------------------------------           
-            
+           -------------------------------------------------------------------------------------------------------------------------------------------          
+           
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ChildBg(), 0x333333FF)
-            
+           
             reaper.ImGui_BeginChild(ctx, "TABLE HEADER", 410, 42, 0, reaper.ImGui_WindowFlags_None())
             reaper.ImGui_SetNextItemWidth(ctx, 240)
             _, filter_text = reaper.ImGui_InputText(ctx, " : RENDER ITEMS FILTER", filter_text)
-            
-        
+           
+       
             reaper.ImGui_EndChild(ctx)
             reaper.ImGui_PopStyleColor(ctx)
 
@@ -1368,7 +1389,7 @@ function loop()
             -------------------------------------------------------------------------------------------------------------------------------
             ------------ TABLE ----------------
             -------------------------------------------------------------------------------------------------------------------------------
-            
+           
             reaper.ImGui_BeginChild(ctx, "tabela")
            
             if num_tracks ~= 0 and reaper.ImGui_BeginTable(ctx, "regionRenderTable", num_tracks, table_flags) then
@@ -1384,9 +1405,9 @@ function loop()
                 reaper.ImGui_TableHeadersRow(ctx)
    
                 local max_items = 0
-                
+               
                 filtered_items = {} -- Reset filtered items
-                
+               
                 -- First pass: collect filtered items and find max length
                 for folder_track, items in pairs(track_folder_map) do
                     filtered_items[folder_track] = {}
@@ -1403,7 +1424,7 @@ function loop()
                         max_items = #filtered_items[folder_track]
                     end
                 end
-                
+               
                 for _, items in pairs(track_folder_map) do
                     if #items > max_items then
                         max_items = #items
@@ -1431,13 +1452,13 @@ function loop()
                     reaper.ImGui_TableNextRow(ctx)
                     for column_index, folder_track in ipairs(sorted_folder_tracks) do
                         reaper.ImGui_TableSetColumnIndex(ctx, column_index - 1)
-                        
+                       
                         local items = track_folder_map[folder_track]
                         local item = items[item_idx]
-                        
+                       
                         local items = filtered_items[folder_track]
                         local item = items[item_idx]
-                        
+                       
                         if item then
                             local active_take = reaper.GetActiveTake(item)
                             if active_take then
@@ -1542,7 +1563,7 @@ function loop()
             --reaper.ImGui_PopFont(ctx)
             reaper.ImGui_End(ctx)
         end
-        
+       
         StyleManager.PopStyle(ctx)
     end
 
