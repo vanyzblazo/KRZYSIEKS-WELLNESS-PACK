@@ -1,5 +1,5 @@
 --[[
-@version 1.01
+@version 1.1
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -196,6 +196,16 @@ local settings_file_path = reaper.GetResourcePath() .. '/Scripts/RenderSettings.
 
 function dBToAmplitude(dB)
     return 10^(dB / 20)
+end
+
+
+-----------------------------------------------------------------------------------------------------------------
+------------------------DB TO AMPLITUDE-----------------------------
+-----------------------------------------------------------------------------------------------------------------
+
+function clearSelectedItems()
+    selected_items = {}
+    updateRenderQueue()
 end
 
 -----------------------------------------------------------------------------------------------------------------
@@ -1360,10 +1370,16 @@ function loop()
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ChildBg(), 0x333333FF)
            
             reaper.ImGui_BeginChild(ctx, "TABLE HEADER", 410, 42, 0, reaper.ImGui_WindowFlags_None())
-            reaper.ImGui_SetNextItemWidth(ctx, 240)
-            _, filter_text = reaper.ImGui_InputText(ctx, " : RENDER ITEMS FILTER", filter_text)
+            reaper.ImGui_SetNextItemWidth(ctx, 275)
+            _, filter_text = reaper.ImGui_InputText(ctx, " : FILTER", filter_text)
+            
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_Dummy(ctx, 8, 0)
+            reaper.ImGui_SameLine(ctx)
+            if reaper.ImGui_Button(ctx, "CLR!", 36,36) then
+                clearSelectedItems()
+            end
            
-       
             reaper.ImGui_EndChild(ctx)
             reaper.ImGui_PopStyleColor(ctx)
 
@@ -1483,22 +1499,35 @@ function loop()
                                 end
                
                                 if reaper.ImGui_Selectable(ctx, item_display, is_selected) then
-                                    if ctrl_pressed then
-                                        selected_items[item] = nil
-                                    elseif alt_pressed then
-                                        if selected_items[item] then
-                                            selected_items[item].second_pass = not selected_items[item].second_pass
-                                        else
-                                            selected_items[item] = { second_pass = true }
-                                        end
-                                    else
-                                        if selected_items[item] then
+                                    local is_scrolling = reaper.ImGui_IsMouseDragging(ctx, 0) and 
+                                                        reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows())
+                                    
+                                    local is_window_moving = reaper.ImGui_IsMouseDragging(ctx, 0) and 
+                                                            reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_AllowWhenBlockedByActiveItem())
+                                    
+                                    local is_safe_click = not is_scrolling and 
+                                                         not is_window_moving and 
+                                                         not reaper.ImGui_IsWindowFocused(ctx, reaper.ImGui_FocusedFlags_ChildWindows())
+                                
+                                    -- Only process selection if it's a deliberate click
+                                    if is_safe_click then
+                                        if ctrl_pressed then
                                             selected_items[item] = nil
+                                        elseif alt_pressed then
+                                            if selected_items[item] then
+                                                selected_items[item].second_pass = not selected_items[item].second_pass
+                                            else
+                                                selected_items[item] = { second_pass = true }
+                                            end
                                         else
-                                            selected_items[item] = {}
+                                            if selected_items[item] then
+                                                selected_items[item] = nil
+                                            else
+                                                selected_items[item] = {}
+                                            end
                                         end
+                                        updateRenderQueue()
                                     end
-                                    updateRenderQueue()
                                 end
            
                                 if is_selected then
