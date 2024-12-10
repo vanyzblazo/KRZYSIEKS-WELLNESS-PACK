@@ -1,5 +1,5 @@
 --[[
-@version 1.1
+@version 1.03
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -121,6 +121,7 @@ reaper.ImGui_Attach(ctx, normal_font)
 -- Big font
 local big_font = reaper.ImGui_CreateFont(font_name, 16)
 reaper.ImGui_Attach(ctx, big_font)
+
 
 -- INIT VARIABLES --------------------------------------------------------------------------------------------------------------------------
 
@@ -1298,18 +1299,18 @@ function loop()
             reaper.ImGui_Indent(ctx, 8)
            
             reaper.ImGui_Dummy(ctx,4,6)
+            
+            --if reaper.ImGui_Button(ctx, 'RDR!',36,36) then
+            --    renderQueuedRegions()
+            --end
            
-            if reaper.ImGui_Button(ctx, 'RDR!',36,36) then
-                renderQueuedRegions()
-            end
-           
-            reaper.ImGui_Dummy(ctx,0,10)
+            reaper.ImGui_Dummy(ctx,0,18)
            
             if reaper.ImGui_Button(ctx, 'ADJ!',36,36) then
                 adjustFolderItems()
             end
            
-            reaper.ImGui_Dummy(ctx,0,10)
+            reaper.ImGui_Dummy(ctx,0,12)
                        
             if reaper.ImGui_Button(ctx, "...", 36, 20) then
                 preferences_window = not preferences_window
@@ -1370,16 +1371,26 @@ function loop()
             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ChildBg(), 0x333333FF)
            
             reaper.ImGui_BeginChild(ctx, "TABLE HEADER", 410, 42, 0, reaper.ImGui_WindowFlags_None())
-            reaper.ImGui_SetNextItemWidth(ctx, 275)
-            _, filter_text = reaper.ImGui_InputText(ctx, " : FILTER", filter_text)
+            reaper.ImGui_SetNextItemWidth(ctx, 244)
+            _, filter_text = reaper.ImGui_InputText(ctx, " : FLTR", filter_text)
             
             reaper.ImGui_SameLine(ctx)
-            reaper.ImGui_Dummy(ctx, 8, 0)
+            reaper.ImGui_Dummy(ctx, 0, 0)
             reaper.ImGui_SameLine(ctx)
             if reaper.ImGui_Button(ctx, "CLR!", 36,36) then
                 clearSelectedItems()
             end
-           
+            
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_Dummy(ctx, 0,0)
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0xB84A62FF)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xC55B73FF)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0xA13B53FF)
+            if reaper.ImGui_Button(ctx, 'RDR!',36,36) then
+                renderQueuedRegions()
+            end
+            reaper.ImGui_PopStyleColor(ctx,3)
             reaper.ImGui_EndChild(ctx)
             reaper.ImGui_PopStyleColor(ctx)
 
@@ -1454,8 +1465,9 @@ function loop()
                 local ctrl_pressed = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftCtrl())
                 local alt_pressed = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftAlt())
                
-                if mouse_clicked then
+                if mouse_clicked and not reaper.ImGui_IsAnyItemActive(ctx) then
                     is_dragging = true
+                    
                     local mouse_x, mouse_y = reaper.ImGui_GetMousePos(ctx)
                     drag_start_pos = {mouse_x, mouse_y}
                 elseif mouse_released then
@@ -1499,37 +1511,24 @@ function loop()
                                 end
                
                                 if reaper.ImGui_Selectable(ctx, item_display, is_selected) then
-                                    local is_scrolling = reaper.ImGui_IsMouseDragging(ctx, 0) and 
-                                                        reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows())
-                                    
-                                    local is_window_moving = reaper.ImGui_IsMouseDragging(ctx, 0) and 
-                                                            reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_AllowWhenBlockedByActiveItem())
-                                    
-                                    local is_safe_click = not is_scrolling and 
-                                                         not is_window_moving and 
-                                                         not reaper.ImGui_IsWindowFocused(ctx, reaper.ImGui_FocusedFlags_ChildWindows())
-                                
-                                    -- Only process selection if it's a deliberate click
-                                    if is_safe_click then
-                                        if ctrl_pressed then
-                                            selected_items[item] = nil
-                                        elseif alt_pressed then
-                                            if selected_items[item] then
-                                                selected_items[item].second_pass = not selected_items[item].second_pass
-                                            else
-                                                selected_items[item] = { second_pass = true }
-                                            end
+                                    if ctrl_pressed then
+                                        selected_items[item] = nil
+                                    elseif alt_pressed then
+                                        if selected_items[item] then
+                                            selected_items[item].second_pass = not selected_items[item].second_pass
                                         else
-                                            if selected_items[item] then
-                                                selected_items[item] = nil
-                                            else
-                                                selected_items[item] = {}
-                                            end
+                                            selected_items[item] = { second_pass = true }
                                         end
-                                        updateRenderQueue()
+                                    else
+                                        if selected_items[item] then
+                                            selected_items[item] = nil
+                                        else
+                                            selected_items[item] = {}
+                                        end
                                     end
+                                    updateRenderQueue()
                                 end
-           
+  
                                 if is_selected then
                                     reaper.ImGui_PopStyleColor(ctx, 3)
                                 end
