@@ -1,5 +1,5 @@
 --[[
-@version 1.04
+@version 1.05
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -8,9 +8,10 @@ if reaper.file_exists( ultraschall_path ) then
 end
 
 if not ultraschall or not ultraschall.GetApiVersion then
-  reaper.MB("Please install Ultraschall API, available via Reapack.", "Error", 0)
-  return
-end
+    reaper.ShowConsoleMsg("REAPACK LINK: https://github.com/Ultraschall/ultraschall-lua-api-for-reaper/raw/master/ultraschall_api_index.xml")
+    reaper.MB("Please install Ultraschall API, available via Reapack.", "Error", 0)
+    return
+  end
 
 -- STYLES --------------------------------------------------------------------------------------------------------------------------
 local StyleManager = {
@@ -101,7 +102,8 @@ end
 -- Initialize ImGui context
 local ctx = reaper.ImGui_CreateContext('RENDERVAN')
 if not ctx then
-    reaper.ShowMessageBox("Please install ImGUI for REAPER via Reapack.", "Error", 0)
+    reaper.ShowConsoleMsg("REAPACK LINK: https://github.com/ReaTeam/Extensions/raw/master/index.xml")
+    reaper.ShowMessageBox("Please install ImGUI for REAPER via Reapack." .. "\n" .. "It is available as a part of ReaTeam Extensions on Reapack. ", "Error", 0)
     return
 end
 
