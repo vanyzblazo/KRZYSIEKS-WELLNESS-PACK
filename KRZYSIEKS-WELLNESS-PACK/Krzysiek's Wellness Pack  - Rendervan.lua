@@ -1,5 +1,5 @@
 --[[
-@version 1.03
+@version 1.04
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -98,8 +98,6 @@ function table.keys(t)
     return keys
 end
 
-
- 
 -- Initialize ImGui context
 local ctx = reaper.ImGui_CreateContext('RENDERVAN')
 if not ctx then
@@ -122,7 +120,6 @@ reaper.ImGui_Attach(ctx, normal_font)
 local big_font = reaper.ImGui_CreateFont(font_name, 16)
 reaper.ImGui_Attach(ctx, big_font)
 
-
 -- INIT VARIABLES --------------------------------------------------------------------------------------------------------------------------
 
 local visible = true
@@ -142,6 +139,7 @@ local drag_start_pos = nil
 local drag_end_pos = nil
 local drag_started_from_selected = false
 local selectedFilteredIndex = 1
+local pref_variaton_start_number = 0
 
 local show_channel_input_popup = false
 local num_channels = ""
@@ -785,19 +783,9 @@ end
 -----------------------------------------------------------------------------------------------------------------
 
 
-function nameRename(num_channels)
-    --[[
-    show_channel_input_popup = true
-    local ret, user_inputs = reaper.GetUserInputs("Input Channels", 1, "Number of Channels:", "")
-    if not ret then
-        show_channel_input_popup = false
-        return
-    end
-    --]]
-   
-    num_channels = tonumber(user_inputs) or 2 -- Default to stereo if invalid input
-    --show_channel_input_popup = false
-   
+function nameRename(channels)
+    local num_channels = tonumber(channels) or 2
+ 
     -- Make sure we have a valid base name
     local base_name = finalPrefix .. sound_name
     if base_name == "" then
@@ -1299,10 +1287,6 @@ function loop()
             reaper.ImGui_Indent(ctx, 8)
            
             reaper.ImGui_Dummy(ctx,4,6)
-            
-            --if reaper.ImGui_Button(ctx, 'RDR!',36,36) then
-            --    renderQueuedRegions()
-            --end
            
             reaper.ImGui_Dummy(ctx,0,18)
            
@@ -1588,7 +1572,6 @@ function loop()
        
             reaper.ImGui_EndChild(ctx)
            
-            --reaper.ImGui_PopFont(ctx)
             reaper.ImGui_End(ctx)
         end
        
