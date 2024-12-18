@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Krzysiek's Wellness Pack" commit="72dc137c6c8c1983e138dfa0acbc82f63ff2f907">
+<index version="1" name="Krzysiek's Wellness Pack" commit="d68f00a4d5c0ac0913b953b59bd549ba31930983">
   <category name="KRZYSIEKS-WELLNESS-PACK">
     <reapack name="Krzysiek's Wellness Pack  - Rendervan.lua" type="script">
       <version name="0.9" time="2024-11-20T20:45:11Z">
@@ -24,6 +24,11 @@
     <reapack name="Krzysiek's Wellness Pack - 2 frame fades.lua" type="script">
       <version name="1.0" time="2024-11-20T20:45:11Z">
         <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%202%20frame%20fades.lua</source>
+      </version>
+    </reapack>
+    <reapack name="Krzysiek's Wellness Pack - Duplicate items with project markers.lua" type="script">
+      <version name="0.1" time="2024-12-18T09:10:15Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/d68f00a4d5c0ac0913b953b59bd549ba31930983/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%20Duplicate%20items%20with%20project%20markers.lua</source>
       </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - Recall position on timeline.lua" type="script">
