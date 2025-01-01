@@ -913,18 +913,16 @@ local function wwiseBuildHierarchy(array)
 end
 
 function wwiseRenderTree(tree, parent_level)
-    local depth_limit = 1  -- Show first two levels by default
+    local depth_limit = 1  
     parent_level = parent_level or 1
     local has_visible_children = false
     
-    -- Convert filter once for this render pass
     local filter_words = prepareFilterWords(wwise_hierarchy_filter)
 
     for _, node in ipairs(tree) do
         local object = node.object
         
-        -- Simplified visibility logic: show if within depth limit or matches filter
-        local should_show = (parent_level <= depth_limit) or (wwise_hierarchy_filter ~= "" and wwiseNodeOrDescendantsMatch(node, filter_words))
+        local should_show = true
         
         if should_show then
             has_visible_children = true
@@ -967,20 +965,15 @@ function wwiseRenderTree(tree, parent_level)
             reaper.ImGui_PopStyleColor(ctx, 2)
             reaper.ImGui_SameLine(ctx)
             
-            -- Set up tree node flags
-            local node_flags = reaper.ImGui_TreeNodeFlags_SpanAvailWidth()
+            local node_flags = reaper.ImGui_TreeNodeFlags_SpanAvailWidth() | reaper.ImGui_TreeNodeFlags_OpenOnArrow()
             
             if object.type == "Sound" then
                 node_flags = node_flags | reaper.ImGui_TreeNodeFlags_Leaf() | reaper.ImGui_TreeNodeFlags_NoTreePushOnOpen()
-            end
-            
-            -- Auto-expand logic
-            if parent_level <= 1 or 
-               (object.type == "WorkUnit" and parent_level <= 2) or 
-               (wwise_hierarchy_filter ~= "" and wwiseNodeOrDescendantsMatch(node, filter_words)) then
+            elseif wwise_hierarchy_filter ~= "" and wwiseNodeOrDescendantsMatch(node, filter_words) then
                 node_flags = node_flags | reaper.ImGui_TreeNodeFlags_DefaultOpen()
             end
-
+            
+            -- Create the tree node (back to original method)
             local node_open = reaper.ImGui_TreeNode(ctx, object.name, node_flags)
             
             -- Handle drag and drop
@@ -998,10 +991,11 @@ function wwiseRenderTree(tree, parent_level)
                 end
                 reaper.ImGui_EndDragDropTarget(ctx)
             end
-
+            
             -- Handle children recursively
+            
             if node_open and object.type ~= "Sound" then
-                if node.children then
+                if node.children and #node.children > 0 then
                     wwiseRenderTree(node.children, parent_level + 1)
                 end
                 reaper.ImGui_TreePop(ctx)
