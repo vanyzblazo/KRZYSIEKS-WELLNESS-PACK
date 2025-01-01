@@ -1,5 +1,5 @@
 --[[
-@version 1.0
+@version 1.01
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
