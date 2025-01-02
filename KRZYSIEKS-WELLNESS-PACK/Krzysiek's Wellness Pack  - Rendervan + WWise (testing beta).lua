@@ -1,5 +1,5 @@
 --[[
-@version 1.01
+@version 1.02
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -213,6 +213,7 @@ local filter_cache = {}
 local max_cache_size = 100  
 local cache_reset_threshold = 0.8  
 local filtering_in_progress = false
+local collapse_end_containers = false
 
 local previous_filter = ""
 local filtered_hierarchy_tree = nil
@@ -241,18 +242,47 @@ local function doesNodeMatch(node, filter_words)
     return true
 end
 
--- Convert filter string to normalized word array
-local function prepareFilterWords(filter)
+-- Convert filter string to normalized word array and validate minimum length
+local function validateAndPrepareFilterWords(filter)
+    -- If filter is empty, return empty array
+    if not filter or filter == "" then
+        return {}
+    end
+
     -- Normalize filter string
     filter = filter:lower():gsub("^%s+", ""):gsub("%s+$", "")
     
-    -- Split into words
+    -- Split into words and check lengths
     local words = {}
+    local has_three_char_word = false
+    
     for word in filter:gmatch("%S+") do
-        table.insert(words, word:lower())
+        local normalized_word = word:lower()
+        if #normalized_word >= 3 then
+            has_three_char_word = true
+        end
+        table.insert(words, normalized_word)
     end
     
-    return words
+    -- Only return the words if at least one meets the length requirement
+    if has_three_char_word then
+        return words
+    else
+        return {}
+    end
+end
+
+function countMatchingSounds(node, filter_words)
+    local count = 0
+    if node.object.type == "Sound" and doesNodeMatch(node, filter_words) then
+        return 1
+    end
+    if node.children then
+        for _, child in ipairs(node.children) do
+            count = count + countMatchingSounds(child, filter_words)
+        end
+    end
+    return count
 end
 
 -- Check if a node or any of its descendants match
@@ -294,7 +324,7 @@ function wwiseCreateFilteredHierarchy(full_hierarchy, filter)
     end
     
     -- Prepare filter
-    local filter_words = prepareFilterWords(filter)
+    local filter_words = validateAndPrepareFilterWords(filter)
     
     -- Check cache
     for i, cached_result in ipairs(filter_cache) do
@@ -912,19 +942,30 @@ local function wwiseBuildHierarchy(array)
     return tree
 end
 
-function wwiseRenderTree(tree, parent_level)
-    local depth_limit = 1  
+function wwiseRenderTree(tree, parent_level, result_count)
+    result_count = result_count or {count = 0, max = 50}  
     parent_level = parent_level or 1
     local has_visible_children = false
     
-    local filter_words = prepareFilterWords(wwise_hierarchy_filter)
+    -- Get filter words from the already prepared global filter
+    local filter_words = validateAndPrepareFilterWords(wwise_hierarchy_filter or "")
 
     for _, node in ipairs(tree) do
         local object = node.object
-        
         local should_show = true
         
+        -- Check if this node is a direct match (not just a parent of matches)
+        local is_direct_match = wwise_hierarchy_filter ~= "" and doesNodeMatch(node, filter_words)
+        
         if should_show then
+            -- Only count and check limit for direct matches
+            if is_direct_match then
+                if result_count.count >= result_count.max then
+                    return has_visible_children
+                end
+                result_count.count = result_count.count + 1
+            end
+            
             has_visible_children = true
             
             -- Type indicator styling
@@ -967,14 +1008,37 @@ function wwiseRenderTree(tree, parent_level)
             
             local node_flags = reaper.ImGui_TreeNodeFlags_SpanAvailWidth() | reaper.ImGui_TreeNodeFlags_OpenOnArrow()
             
-            if object.type == "Sound" then
+            -- Check if this is a container with only Sound children
+            local has_only_sound_children = false
+            local matching_sounds_count = 0
+            if node.children and #node.children > 0 then
+                has_only_sound_children = true
+                for _, child in ipairs(node.children) do
+                    if child.object.type ~= "Sound" then
+                        has_only_sound_children = false
+                        break
+                    end
+                end
+                if has_only_sound_children then
+                    matching_sounds_count = countMatchingSounds(node, filter_words)
+                end
+            end
+            
+            -- Apply node flags based on type and settings
+            if object.type == "Sound" and collapse_end_containers then
+                return has_visible_children -- Skip rendering individual sounds when collapsing
+            elseif object.type == "Sound" then
                 node_flags = node_flags | reaper.ImGui_TreeNodeFlags_Leaf() | reaper.ImGui_TreeNodeFlags_NoTreePushOnOpen()
             elseif wwise_hierarchy_filter ~= "" and wwiseNodeOrDescendantsMatch(node, filter_words) then
                 node_flags = node_flags | reaper.ImGui_TreeNodeFlags_DefaultOpen()
             end
             
-            -- Create the tree node (back to original method)
-            local node_open = reaper.ImGui_TreeNode(ctx, object.name, node_flags)
+            -- Create the tree node
+            local node_label = object.name
+            if has_only_sound_children and matching_sounds_count > 0 then
+                node_label = node_label .. string.format(" (%d)", matching_sounds_count)
+            end
+            local node_open = reaper.ImGui_TreeNode(ctx, node_label, node_flags)
             
             -- Handle drag and drop
             if reaper.ImGui_BeginDragDropTarget(ctx) then
@@ -993,10 +1057,10 @@ function wwiseRenderTree(tree, parent_level)
             end
             
             -- Handle children recursively
-            
             if node_open and object.type ~= "Sound" then
-                if node.children and #node.children > 0 then
-                    wwiseRenderTree(node.children, parent_level + 1)
+                if node.children and #node.children > 0 and 
+                   not (collapse_end_containers and has_only_sound_children) then
+                    wwiseRenderTree(node.children, parent_level + 1, result_count)
                 end
                 reaper.ImGui_TreePop(ctx)
             end
@@ -1225,14 +1289,28 @@ end
         reaper.ImGui_Dummy(ctx, 0, 5)
        
         reaper.ImGui_PopStyleVar(ctx, 1)
-       
-        reaper.ImGui_BeginChild(ctx, "FilterWWise", 360, 42)
+ 
+        -----------------------------------------------------------------------------------------------------------------------------------
+        -------------------------------------------------------- FILTER ----------------------------------------------------------
+        -----------------------------------------------------------------------------------------------------------------------------------
+        
+        reaper.ImGui_BeginChild(ctx, "FilterWWise", 560, 42)
         reaper.ImGui_SetNextItemWidth(ctx, 200)
-       
-        retval, wwise_hierarchy_filter = reaper.ImGui_InputText(ctx, "Filter WWise Hierarchy", wwise_hierarchy_filter)
-           
+        
+        -- Get new filter text
+        local retval, new_filter = reaper.ImGui_InputText(ctx, "Filter WWise Hierarchy", wwise_hierarchy_filter)
+        
+        -- Add collapse checkbox
+        reaper.ImGui_SameLine(ctx)
+        _, collapse_end_containers = reaper.ImGui_Checkbox(ctx, "Compact View", collapse_end_containers)
+        
+        -- Only update the actual filter if it contains a word of at least 3 characters
+        local temp_words = validateAndPrepareFilterWords(new_filter)
+        if #temp_words > 0 or new_filter == "" then
+            wwise_hierarchy_filter = new_filter
+        end
+        
         reaper.ImGui_EndChild(ctx)
-       
        
         -----------------------------------------------------------------------------------------------------------------------------------
         -------------------------------------------------------- WWise hierarchy ----------------------------------------------------------
