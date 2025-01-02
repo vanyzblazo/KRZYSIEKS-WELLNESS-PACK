@@ -1,5 +1,5 @@
 --[[
-@version 1.02
+@version 1.03
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -8,8 +8,8 @@ if reaper.file_exists( ultraschall_path ) then
 end
 
 if not ultraschall or not ultraschall.GetApiVersion then
-    reaper.ShowConsoleMsg("REAPACK LINK: https://github.com/Ultraschall/ultraschall-lua-api-for-reaper/raw/master/ultraschall_api_index.xml")
-    reaper.MB("Please install Ultraschall API, available via Reapack.", "Error", 0)
+    reaper.ShowConsoleMsg("Please install both Ultrashall API and ReaTeam js_ReaScript API" .. "\n" .. "REAPACK LINK: https://github.com/Ultraschall/ultraschall-lua-api-for-reaper/raw/master/ultraschall_api_index.xml" .. "\n" .. "REAPACK LINK: https://github.com/ReaTeam/Extensions/raw/master/index.xml")
+    reaper.MB("Please install Ultraschall API and ReaTeam js_ReaScript API , available via Reapack.", "Error", 0)
     return
   end
 
