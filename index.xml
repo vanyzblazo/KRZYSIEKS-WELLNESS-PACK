@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Krzysiek's Wellness Pack" commit="83c995b57abc381e72e558c27a48dde3c721fdc8">
+<index version="1" name="Krzysiek's Wellness Pack" commit="cc4ad8f25d2d4e559155a345ff00e0e16b66dfe3">
   <category name="KRZYSIEKS-WELLNESS-PACK">
     <reapack name="Krzysiek's Wellness Pack  - Rendervan + WWise (testing beta).lua" type="script">
       <version name="1.0" time="2025-01-01T22:27:12Z">
-        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/7bd8b705efccc460a5cc0203afd483bed7dcad0d/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise%20(testing%20beta).lua</source>
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/730f8068245a3d9df7eca81d7de3224e49f3b99d/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise%20(testing%20beta).lua</source>
       </version>
       <version name="1.01" time="2025-01-01T23:03:55Z">
         <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/83c995b57abc381e72e558c27a48dde3c721fdc8/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise%20(testing%20beta).lua</source>
       </version>
+      <version name="1.02" time="2025-01-02T09:10:36Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/cc4ad8f25d2d4e559155a345ff00e0e16b66dfe3/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise%20(testing%20beta).lua</source>
+      </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack  - Rendervan.lua" type="script">
       <version name="0.9" time="2024-11-20T20:45:11Z">
-        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan.lua</source>
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan.lua</source>
       </version>
       <version name="1.0" time="2024-12-08T19:15:04Z">
         <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/efadc3ff6ebbe847b5b9cf01b9b9b4f5f82d1b93/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan.lua</source>
@@ -31,7 +34,7 @@
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - 2 frame fades.lua" type="script">
       <version name="1.0" time="2024-11-20T20:45:11Z">
-        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%202%20frame%20fades.lua</source>
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%202%20frame%20fades.lua</source>
       </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - Duplicate items with project markers.lua" type="script">
@@ -41,17 +44,17 @@
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - Recall position on timeline.lua" type="script">
       <version name="1.0" time="2024-11-20T20:45:11Z">
-        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%20Recall%20position%20on%20timeline.lua</source>
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%20Recall%20position%20on%20timeline.lua</source>
       </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - Save position on timeline.lua" type="script">
       <version name="1.0" time="2024-11-20T20:45:11Z">
-        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%20Save%20position%20on%20timeline.lua</source>
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%20Save%20position%20on%20timeline.lua</source>
       </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - Toggle playrate between two settings.lua" type="script">
       <version name="1.0" time="2024-11-20T20:45:11Z">
-        <source main="main">https://github.com/vanyzblazo/KRZYSIEK-REAPACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%20Toggle%20playrate%20between%20two%20settings.lua</source>
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/32050207cceb6e2ea17cee2eab41e09c3b35f207/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20-%20Toggle%20playrate%20between%20two%20settings.lua</source>
       </version>
     </reapack>
   </category>
