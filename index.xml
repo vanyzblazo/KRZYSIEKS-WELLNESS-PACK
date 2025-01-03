@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Krzysiek's Wellness Pack" commit="2bda78c0bdde8a6d94f10f2d5cc6e355b5c1ae37">
+<index version="1" name="Krzysiek's Wellness Pack" commit="1aeb4becc6d8be2458ddee01bb088706c8d7dd1e">
   <category name="KRZYSIEKS-WELLNESS-PACK">
     <reapack name="Krzysiek's Wellness Pack  - Rendervan + WWise (testing beta).lua" type="script">
       <version name="1.0" time="2025-01-01T22:27:12Z">
@@ -13,6 +13,9 @@
       </version>
       <version name="1.03" time="2025-01-02T12:55:42Z">
         <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/2bda78c0bdde8a6d94f10f2d5cc6e355b5c1ae37/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise%20(testing%20beta).lua</source>
+      </version>
+      <version name="1.04" time="2025-01-03T08:01:13Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/1aeb4becc6d8be2458ddee01bb088706c8d7dd1e/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise%20(testing%20beta).lua</source>
       </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack  - Rendervan.lua" type="script">
