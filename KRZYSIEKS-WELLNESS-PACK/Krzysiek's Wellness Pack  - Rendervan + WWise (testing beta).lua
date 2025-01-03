@@ -1,5 +1,5 @@
 --[[
-@version 1.03
+@version 1.04
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -1122,7 +1122,9 @@ end
        
         if reaper.ImGui_Button(ctx, "GET!", 36, 36) then
             ww_actor_mixer_hierarchy = wwiseGetActorMixerHierarchy()
-            wwise_hierarchy_tree = wwiseBuildHierarchy(ww_actor_mixer_hierarchy)  -- Rebuild tree when refreshing
+            wwise_hierarchy_tree = wwiseBuildHierarchy(ww_actor_mixer_hierarchy)
+            filtered_hierarchy_tree = wwiseCreateFilteredHierarchy(wwise_hierarchy_tree, "")
+            previous_filter = ""
         end
         reaper.ImGui_SameLine(ctx)
         reaper.ImGui_BeginChild(ctx, "WWise project status", 120, 42)
