@@ -1,5 +1,5 @@
 --[[
-@version 1.04
+@version 1.05
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
@@ -741,6 +741,7 @@ function wwiseReplaceAudio(items)
         
         local result = reaper.AK_Waapi_Call("ak.wwise.core.object.get", search_args, options)
         local status = reaper.AK_AkJson_GetStatus(result)
+        
 
         if status then
             local return_objects = reaper.AK_AkJson_Map_Get(result, "return")
@@ -794,7 +795,7 @@ function wwiseReplaceAudio(items)
 
     -- Set up Wwise import command for replacement
     local importCommand = "ak.wwise.core.audio.import"
-    local importOperation = reaper.AK_AkVariant_String("replaceExisting")
+    local importOperation = reaper.AK_AkVariant_String("useExisting")
    
     -- Set up default import settings
     local default = reaper.AK_AkJson_Map()
@@ -2738,7 +2739,7 @@ function loop()
                                         reaper.ImGui_SetDragDropPayload(ctx, "RENDER_ITEMS", "items")
                                        
                                         -- Show preview of dragged items
-                                        reaper.ImGui_Text(ctx, string.format("í ¼í¾µ Dragging %d items", #dragged_items))
+                                        reaper.ImGui_Text(ctx, string.format("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Dragging %d items", #dragged_items))
                                         -- Show first few items as preview
                                         for i = 1, math.min(3, #dragged_items) do
                                             reaper.ImGui_Text(ctx, "  " .. dragged_items[i].name)
