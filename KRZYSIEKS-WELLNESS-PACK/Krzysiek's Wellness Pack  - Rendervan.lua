@@ -1,7 +1,7 @@
 --[[
-@version 1.81
+@version 1.82
 @provides
-  fonts/andalemono.ttf
+  fonts/andalemono_rv.ttf
 --]]
 
 ultraschall_path = reaper.GetResourcePath().."/UserPlugins/ultraschall_api.lua"
