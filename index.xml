@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Krzysiek's Wellness Pack" commit="7c3b0fe8a1a0b47e8b3621ec7c9e6ebcd399b864">
+<index version="1" name="Krzysiek's Wellness Pack" commit="e16c3b1881c7d1a6040e1f95ef986101e1fb6dd4">
   <category name="KRZYSIEKS-WELLNESS-PACK">
     <reapack name="Krzysiek's Wellness Pack  - Rendervan + WWise (testing beta).lua" type="script">
       <version name="1.0" time="2025-01-01T22:27:12Z">
@@ -37,6 +37,10 @@
         <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/7c3b0fe8a1a0b47e8b3621ec7c9e6ebcd399b864/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise.lua</source>
         <source file="fonts/andalemono_rvw.ttf">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/7c3b0fe8a1a0b47e8b3621ec7c9e6ebcd399b864/KRZYSIEKS-WELLNESS-PACK/fonts/andalemono_rvw.ttf</source>
       </version>
+      <version name="1.83" time="2025-10-09T05:41:48Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/e16c3b1881c7d1a6040e1f95ef986101e1fb6dd4/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan%20+%20WWise.lua</source>
+        <source file="fonts/andalemono_rvw.ttf">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/e16c3b1881c7d1a6040e1f95ef986101e1fb6dd4/KRZYSIEKS-WELLNESS-PACK/fonts/andalemono_rvw.ttf</source>
+      </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack  - Rendervan.lua" type="script">
       <version name="0.9" time="2024-11-20T20:45:11Z">
@@ -60,6 +64,10 @@
       <version name="1.82" time="2025-10-08T18:50:22Z">
         <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/7c3b0fe8a1a0b47e8b3621ec7c9e6ebcd399b864/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan.lua</source>
         <source file="fonts/andalemono_rv.ttf">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/7c3b0fe8a1a0b47e8b3621ec7c9e6ebcd399b864/KRZYSIEKS-WELLNESS-PACK/fonts/andalemono_rv.ttf</source>
+      </version>
+      <version name="1.83" time="2025-10-09T05:41:48Z">
+        <source main="main">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/e16c3b1881c7d1a6040e1f95ef986101e1fb6dd4/KRZYSIEKS-WELLNESS-PACK/Krzysiek's%20Wellness%20Pack%20%20-%20Rendervan.lua</source>
+        <source file="fonts/andalemono_rv.ttf">https://github.com/vanyzblazo/KRZYSIEKS-WELLNESS-PACK/raw/e16c3b1881c7d1a6040e1f95ef986101e1fb6dd4/KRZYSIEKS-WELLNESS-PACK/fonts/andalemono_rv.ttf</source>
       </version>
     </reapack>
     <reapack name="Krzysiek's Wellness Pack - 2 frame fades.lua" type="script">
