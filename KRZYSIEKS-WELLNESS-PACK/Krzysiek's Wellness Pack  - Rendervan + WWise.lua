@@ -1,5 +1,5 @@
 --[[
-@version 1.82
+@version 1.83
 @provides
   fonts/andalemono_rvw.ttf
 --]]
@@ -132,7 +132,7 @@ end
 -- Get your script's directory path
 local script_path = debug.getinfo(1,'S').source:match[[^@?(.*[\/])[^\/]-$]]
 
-local base_font = reaper.ImGui_CreateFontFromFile(script_path .. 'fonts/andalemono.ttf')
+local base_font = reaper.ImGui_CreateFontFromFile(script_path .. 'fonts/andalemono_rvw.ttf')
 
 -- Small font
 local small_font = reaper.ImGui_CreateFont(custom_font_name)
