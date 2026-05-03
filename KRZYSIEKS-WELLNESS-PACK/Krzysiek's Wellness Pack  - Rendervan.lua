@@ -1,5 +1,5 @@
 --[[
-@version 1.83
+@version 1.84
 @provides
   fonts/andalemono_rv.ttf
 --]]
@@ -42,6 +42,7 @@ local StyleManager = {
             [reaper.ImGui_StyleVar_FramePadding()] = {4, 8},
             [reaper.ImGui_StyleVar_TabBarBorderSize()] = 8,
             [reaper.ImGui_StyleVar_TabBorderSize()] = 10,
+            [reaper.ImGui_StyleVar_WindowTitleAlign()] = {0.0, 0.5},
             [reaper.ImGui_StyleVar_WindowMinSize()] = {544, 420},
             [reaper.ImGui_StyleVar_WindowPadding()] = {8, 8},
             [reaper.ImGui_StyleVar_GrabRounding()] = 4,
@@ -172,9 +173,6 @@ local rename_selected_items = false
 local drag_start_scroll_y = 0  -- Track scroll position when drag starts
 local drag_start_content_y = 0  -- Track content position when drag starts
 
-
-
-
 -- INIT SETTINGS --------------------------------------------------------------------------------------------------------------------------
 
 -- Render settings variables
@@ -188,7 +186,9 @@ local ww_project_only_render = true
 local render_via_master = true
 local child_tracks_for_adjustment = {}
 local ignore_muted_items_when_adj = false
-local window_flags = reaper.ImGui_WindowFlags_NoDocking()
+local window_flags = reaper.ImGui_WindowFlags_NoDocking() | reaper.ImGui_WindowFlags_TopMost()
+local render_tail_enabled = false
+local render_tail_ms = 1000.0 -- Default 1000ms
 
 -- Normalization settings variables
 local normalize_render = false
@@ -395,6 +395,50 @@ function clearSelectedItems()
     updateRenderQueue()
 end
 
+function purgeInvalidSelectedItems()
+    local changed = false
+    for item, _ in pairs(selected_items) do
+        if not reaper.ValidatePtr(item, "MediaItem*") then
+            selected_items[item] = nil
+            for i, v in ipairs(selected_items_list) do
+                if v == item then
+                    table.remove(selected_items_list, i)
+                    break
+                end
+            end
+            changed = true
+        end
+    end
+    if changed then
+        updateRenderQueue()
+    end
+end
+
+-----------------------------------------------------------------------------------------------------------------
+------------------------DELETE SELECTED ITEMS-----------------------------
+-----------------------------------------------------------------------------------------------------------------
+
+function deleteSelectedItems()
+    reaper.Undo_BeginBlock()
+    for item, _ in pairs(selected_items) do
+        if reaper.ValidatePtr(item, "MediaItem*") then
+            local take = reaper.GetActiveTake(item)
+            if take then
+                local region_name = reaper.GetTakeName(take)
+                local region_number = findRegionIndexByName(region_name)
+                reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track(item), item)
+                if region_number then
+                    reaper.DeleteProjectMarker(0, region_number, true)
+                end
+            end
+        end
+    end
+    detectFolderItemsAndRegions()
+    selected_items = {}
+    selected_items_list = {}
+    updateRenderQueue()
+    reaper.Undo_EndBlock("Delete render items", -1)
+end
 -----------------------------------------------------------------------------------------------------------------
 ------------------------SAVE SETTINGS TO CSV-----------------------------
 -----------------------------------------------------------------------------------------------------------------
@@ -419,6 +463,8 @@ function SaveSettingsToCSV()
         file:write("render_via_master,", tostring(render_via_master), "\n")
         file:write("pref_variaton_start_number,", tostring(pref_variaton_start_number), "\n")
         file:write("ignore_muted_items_when_adj,", tostring(ignore_muted_items_when_adj), "\n")
+        file:write("render_tail_enabled,", tostring(render_tail_enabled), "\n")
+        file:write("render_tail_ms,", tostring(render_tail_ms), "\n")
         
         -- Add path history - encode as semicolon-separated string
         local path_history_string = table.concat(path_history, ";")
@@ -472,6 +518,10 @@ function LoadSettingsFromCSV()
                     render_via_master = (value == "true")
                 elseif key == "pref_variaton_start_number" then
                     pref_variaton_start_number = tonumber(value)
+                elseif key == "render_tail_enabled" then
+                    render_tail_enabled = (value == "true")
+                elseif key == "render_tail_ms" then
+                    render_tail_ms = tonumber(value)
                 elseif key == "path_history" then
                     -- Decode semicolon-separated string back to table
                     path_history = {}
@@ -505,7 +555,8 @@ function saveRenderSettings()
         render_normalize_target = reaper.GetSetProjectInfo(0, "RENDER_NORMALIZE_TARGET", 0, false),
         render_brickwall = reaper.GetSetProjectInfo(0, "RENDER_BRICKWALL", 0, false),
         render_boundsflag = reaper.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG", 0, false),
-        render_tail = reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 0, false)
+        render_tail = reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 0, false),
+        render_tail_ms = reaper.GetSetProjectInfo(0, "RENDER_TAILMS", 0, false)
     }
 end
 
@@ -520,6 +571,7 @@ function restoreRenderSettings()
     reaper.GetSetProjectInfo(0, "RENDER_BRICKWALL", original_render_settings.render_brickwall, true)
     reaper.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG", original_render_settings.render_boundsflag, true)
     reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", original_render_settings.render_tail, true)
+    reaper.GetSetProjectInfo(0, "RENDER_TAILMS", original_render_settings.render_tail_ms, true)
    
 end
 
@@ -547,10 +599,10 @@ end
 -----------------------------------------------------------------------------------------------------------------
 
 function createRegions(base_name)
+    reaper.Undo_BeginBlock()
     local items = {}
     local num_selected_items = reaper.CountSelectedMediaItems(0)
-   
-    -- Iterate through all selected items
+    
     for i = 0, num_selected_items - 1 do
         local item = reaper.GetSelectedMediaItem(0, i)
         table.insert(items, item)
@@ -558,13 +610,13 @@ function createRegions(base_name)
 
     local parent_sets = {}
 
-    -- Split items into sets based on track parentage
     for _, item in ipairs(items) do
         local track = reaper.GetMediaItem_Track(item)
         local parent_track = getTopMostFolderTrack(track)
 
         if not parent_track then
             reaper.MB("Selected item(s) do not have parent tracks. Please ensure all items belong to a track within a folder.", "Error", 0)
+            reaper.Undo_EndBlock("Create render items", -1)
             return
         end
 
@@ -575,9 +627,7 @@ function createRegions(base_name)
         table.insert(parent_sets[parent_track], item)
     end
 
-    -- Iterate through each parent set
     for parent_track, items in pairs(parent_sets) do
-        -- Sort items by their position within each parent set
         table.sort(items, function(a, b)
             return reaper.GetMediaItemInfo_Value(a, "D_POSITION") < reaper.GetMediaItemInfo_Value(b, "D_POSITION")
         end)
@@ -590,7 +640,6 @@ function createRegions(base_name)
             local item_end = item_start + reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
 
             if item_start >= current_stack_end then
-                -- Create region for the previous stack
                 if #current_stack > 0 then
                     local stack_start = reaper.GetMediaItemInfo_Value(current_stack[1], "D_POSITION")
                     local stack_end = current_stack_end
@@ -609,7 +658,6 @@ function createRegions(base_name)
             end
         end
 
-        -- Create region for the remaining items in the current stack
         if #current_stack > 0 then
             local stack_start = reaper.GetMediaItemInfo_Value(current_stack[1], "D_POSITION")
             local stack_end = current_stack_end
@@ -620,8 +668,8 @@ function createRegions(base_name)
         end
     end
 
-    -- Detect folder items and regions after creation
     detectFolderItemsAndRegions()
+    reaper.Undo_EndBlock("Create render items", -1)
 end
 
 -----------------------------------------------------------------------------------------------------------------
@@ -689,8 +737,6 @@ function renderQueuedRegions()
     saveRenderSettings()
 
     local function setRenderParameters()
-        -- Render Tail
-        reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 0, true)
         -- Sample rate
         reaper.GetSetProjectInfo(0, "RENDER_SRATE", 1000 * tonumber(render_sample_rates[selected_sample_rate_index]:match("%d+")), true)
         -- Bitdepth
@@ -753,6 +799,13 @@ function renderQueuedRegions()
             render_settings = render_settings | 2048 -- Enable second pass render
         end
         reaper.GetSetProjectInfo(0, "RENDER_SETTINGS", render_settings, true)
+
+        if render_tail_enabled then
+            reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 2, true)  -- 2 = all render sources
+            reaper.GetSetProjectInfo(0, "RENDER_TAILMS", render_tail_ms, true)
+        else
+            reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 0, true)
+        end
        
         -- Clear previous active_render_flags array not sure if necessary
         active_render_flags = {}
@@ -801,12 +854,14 @@ function renderQueuedRegions()
         end
     end
 
-    if anyRegularItems then
-        executeRender(render_directory, false)
-    end
-   
-    if anySecondPassItems then
-        executeRender(render_directory, true)
+    if use_inner_render_path then
+        if anyRegularItems then
+            executeRender(render_directory, false)
+        end
+        
+        if anySecondPassItems then
+            executeRender(render_directory, true)
+        end
     end
    
     if use_additional_render_path and additional_render_path ~= "" then
@@ -851,30 +906,6 @@ function findRegionIndexByName(region_name)
         end
     end
     return nil -- Return nil if no region with the given name is found
-end
-
------------------------------------------------------------------------------------------------------------------
---------------------------DELETE ITEMS----------------------------
------------------------------------------------------------------------------------------------------------------
-
-function deleteSelectedItems()
-    for item, _ in pairs(selected_items) do
-        take = reaper.GetActiveTake(item)
-        region_name = reaper.GetTakeName(take)
-        local region_number = findRegionIndexByName(region_name)
-        -- Delete the media item
-        reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track(item), item)
-        reaper.DeleteProjectMarker(0, region_number, true)
-    end
-    
-    detectFolderItemsAndRegions()
-
-    -- Clear the selection
-    selected_items = {}
-    selected_items_list = {}
-    
-    -- Refresh UI
-    updateRenderQueue()
 end
 
 -----------------------------------------------------------------------------------------------------------------
@@ -1026,19 +1057,17 @@ end
 function nameRename(channels, rename_selected_items)
     local num_channels = tonumber(channels) or 2
     
-    -- Make sure we have a valid base name
     local base_name = sound_name
     if base_name == "" then
         reaper.MB("Please enter a valid name", "Error", 0)
         return
     end
 
-    -- Helper function to get new name based on whether suffix is needed
+    reaper.Undo_BeginBlock()  -- after validation so aborted calls don't create empty undo points
+
     local function getNewName(old_name, base_name)
-        -- Original numbering logic
         local old_base = old_name:gsub("_%d+$", "")
         local original_number = old_name:match("_(%d+)$")
-        
         if old_base == base_name and original_number then
             return base_name .. "_" .. original_number
         else
@@ -1047,34 +1076,22 @@ function nameRename(channels, rename_selected_items)
         end
     end
 
-    -- Branch 1: Rename items selected in imgui table
     if rename_selected_items then
-        -- Get items from selected_items table in order
         local ordered_items = {}
         for item, _ in pairs(selected_items) do
             table.insert(ordered_items, item)
         end
-        
-        -- Sort them by position
         table.sort(ordered_items, function(a, b)
             return reaper.GetMediaItemInfo_Value(a, "D_POSITION") < reaper.GetMediaItemInfo_Value(b, "D_POSITION")
         end)
-        
-        -- Process selected items
         for _, item in ipairs(ordered_items) do
             local take = reaper.GetActiveTake(item)
             local _, old_name = reaper.GetSetMediaItemTakeInfo_String(take, "P_NAME", "", false)
-            
             local new_name = getNewName(old_name, base_name)
-            
-            -- Update item name and note
             reaper.GetSetMediaItemTakeInfo_String(take, "P_NAME", new_name, true)
             reaper.ULT_SetMediaItemNote(item, "RENDER ITEM" .. " " .. "CH: " .. tostring(num_channels))
-            
-            -- Update or create region
             local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
             local item_end = item_start + reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-            
             local region_index = findRegionIndexByName(old_name)
             if region_index then
                 reaper.SetProjectMarker(region_index, true, item_start, item_end, new_name)
@@ -1082,82 +1099,50 @@ function nameRename(channels, rename_selected_items)
                 reaper.AddProjectMarker2(0, true, item_start, item_end, new_name, -1, 0)
             end
         end
-        
         detectFolderItemsAndRegions()
+        reaper.Undo_EndBlock("Rename render items", -1)
         return
     end
 
-    -- Branch 2: Process timeline items
-    if not rename_selected_items then
-        reaper.Main_OnCommand(0, 40290) -- make time selection
-    end
-    
-    -- Get time selection
-    local time_start, time_end = reaper.GetSet_LoopTimeRange(false, false, 0, 0, false)
-    if time_end - time_start == 0 then
-        reaper.MB("Please make a time selection", "Error", 0)
-        return
-    end
-    
-    -- Find all selected items within time selection
     local all_items = {}
     local num_selected_items = reaper.CountSelectedMediaItems(0)
     for i = 0, num_selected_items - 1 do
         local item = reaper.GetSelectedMediaItem(0, i)
-        local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
-        local item_end = item_start + reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-        
-        if (item_start < time_end and item_end > time_start) then
-            table.insert(all_items, item)
-        end
+        table.insert(all_items, item)
     end
 
     if #all_items == 0 then
-        -- If no items in time selection, create new regions
-        if no_suffix then
-            -- Create region without suffix
-            reaper.AddProjectMarker2(0, true, time_start, time_end, base_name, -1, 0)
-        else
-            -- Create regions with original numbering
-            createRegions(base_name)
-        end
+        reaper.MB("No items selected on the timeline", "Error", 0)
+        reaper.Undo_EndBlock("Create render items", -1)
         return
     end
 
-    -- GROUP ITEMS BY TOPMOST FOLDER TRACK FIRST
     local items_by_folder = {}
     for _, item in ipairs(all_items) do
         local track = reaper.GetMediaItem_Track(item)
         local parent_track = getTopMostFolderTrack(track)
-        
         if not parent_track then
             reaper.MB("Selected item(s) do not have parent tracks. Please ensure all items belong to a track within a folder.", "Error", 0)
+            reaper.Undo_EndBlock("Create render items", -1)
             return
         end
-        
         if not items_by_folder[parent_track] then
             items_by_folder[parent_track] = {}
         end
-        
         table.insert(items_by_folder[parent_track], item)
     end
 
-    -- NOW PROCESS EACH FOLDER TRACK SEPARATELY
     for parent_track, items in pairs(items_by_folder) do
-        -- Sort items by position within this folder track
         table.sort(items, function(a, b)
             return reaper.GetMediaItemInfo_Value(a, "D_POSITION") < reaper.GetMediaItemInfo_Value(b, "D_POSITION")
         end)
 
-        -- Create stacks within this folder track based on temporal overlap
         local stacks = {}
         local current_stack = {}
         local current_stack_end = 0
-       
         for _, item in ipairs(items) do
             local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
             local item_end = item_start + reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-           
             if item_start > current_stack_end then
                 if #current_stack > 0 then
                     table.insert(stacks, current_stack)
@@ -1172,71 +1157,52 @@ function nameRename(channels, rename_selected_items)
         if #current_stack > 0 then
             table.insert(stacks, current_stack)
         end
-       
-        -- Process each stack within this folder track
+
         for _, stack in ipairs(stacks) do
             local stack_start = math.huge
             local stack_end = 0
             local existing_folder_item = nil
-           
-            -- Find stack boundaries
             for _, item in ipairs(stack) do
                 local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
                 local item_end = item_start + reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
                 stack_start = math.min(stack_start, item_start)
                 stack_end = math.max(stack_end, item_end)
             end
-           
-            -- Check for existing folder item in this parent track
             local num_items = reaper.CountTrackMediaItems(parent_track)
             for i = 0, num_items - 1 do
                 local item = reaper.GetTrackMediaItem(parent_track, i)
                 local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
                 local item_end = item_start + reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
                 local note = reaper.ULT_GetMediaItemNote(item)
-               
                 if string.match(note, "RENDER ITEM") and
                    item_start <= stack_end and item_end >= stack_start then
                     existing_folder_item = item
                     break
                 end
             end
-           
             if existing_folder_item then
-                -- Get the old name first
                 local old_take = reaper.GetActiveTake(existing_folder_item)
                 local _, old_name = reaper.GetSetMediaItemTakeInfo_String(old_take, "P_NAME", "", false)
-                
-                -- Get new name using helper function
                 local new_name = getNewName(old_name, base_name)
-               
-                -- Find the existing region by old name
                 local region_index = findRegionIndexByName(old_name)
-               
                 if region_index then
-                    -- Update existing region with new name
                     reaper.SetProjectMarker(region_index, true, stack_start, stack_end, new_name)
                 else
-                    -- Create new region only if old one wasn't found 
                     reaper.AddProjectMarker2(0, true, stack_start, stack_end, new_name, -1, 0)
                 end
-               
-                -- Update folder item
                 reaper.GetSetMediaItemTakeInfo_String(old_take, "P_NAME", new_name, true)
                 reaper.ULT_SetMediaItemNote(existing_folder_item, "RENDER ITEM" .. " " .. "CH: " .. tostring(num_channels))
             else
-                -- If no existing folder item was found, create a new one
                 local new_name = no_suffix and base_name or (base_name .. findNextAvailableVariationNumber(base_name))
                 createFolderItem(stack_start, stack_end, new_name, parent_track)
                 reaper.AddProjectMarker2(0, true, stack_start, stack_end, new_name, -1, 0)
             end
         end
     end
-    
+
     detectFolderItemsAndRegions()
+    reaper.Undo_EndBlock("Create render items", -1)
 end
-
-
 
 -----------------------------------------------------------------------------------------------------------------
 ------------------------SHOULD UPDATE DETECTION--------------------------
@@ -1247,11 +1213,11 @@ function shouldUpdateDetection()
     local current_change_count = reaper.GetProjectStateChangeCount(0)
     if current_change_count ~= last_project_change_count then
         last_project_change_count = current_change_count
+        purgeInvalidSelectedItems()  -- <- add this line
         return true
     end
     return false
 end
-
 
 -----------------------------------------------------------------------------------------------------------------
 ------------------------NEXT AVAILABLE NUMBER----------------------------
@@ -1601,7 +1567,7 @@ function showItemContextMenu(item)
         
         -- Delete option (applies to ALL selected items)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(), 0xFF6666FF)
-        if reaper.ImGui_MenuItem(ctx, "Delete | hold del 1 sec") then
+        if reaper.ImGui_MenuItem(ctx, "Delete | DEL! or hold del 1 sec") then
             deleteSelectedItems()
         end
         reaper.ImGui_PopStyleColor(ctx)
@@ -2321,7 +2287,7 @@ function loop()
             ---------------------------SETTINGS
             -------------------------------------------------------------------------------------------------------------------------------------------
            
-            reaper.ImGui_BeginChild(ctx, "SETTINGS", 350, 138, 0, reaper.ImGui_WindowFlags_None())
+            reaper.ImGui_BeginChild(ctx, "SETTINGS", 350, 180, 0, reaper.ImGui_WindowFlags_None())
             reaper.ImGui_Indent(ctx, 8)
            
             reaper.ImGui_Dummy(ctx,0,4)
@@ -2444,6 +2410,37 @@ function loop()
             changed, selected_brickwall_limiter_index = reaper.ImGui_Combo(ctx, "##limiter_type", selected_brickwall_limiter_index - 1, table.concat(brickwall_limiter_types, "\0") .. "\0")
             selected_brickwall_limiter_index = selected_brickwall_limiter_index + 1
             reaper.ImGui_PopStyleVar(ctx)
+
+            reaper.ImGui_Dummy(ctx, 0, 0)
+            reaper.ImGui_Separator(ctx)
+            reaper.ImGui_Dummy(ctx, 0, 0)
+
+            changed, render_tail_enabled = reaper.ImGui_Checkbox(ctx, "##:TAIL?:", render_tail_enabled)
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_Dummy(ctx, 0, 0)
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_Text(ctx, ":TAIL?:")
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_Dummy(ctx, 0, 0)
+
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_SetNextItemWidth(ctx, 100)
+            changed, render_tail_ms = reaper.ImGui_SliderDouble(ctx, "##tail_ms", render_tail_ms, 0, 10000, "%.0f ms")
+            if reaper.ImGui_IsItemClicked(ctx, 1) then
+                reaper.ImGui_OpenPopup(ctx, "Edit Tail Length")
+            end
+            if reaper.ImGui_BeginPopup(ctx, "Edit Tail Length") then
+                reaper.ImGui_SetNextItemWidth(ctx, 70)
+                if not popup_initialized then
+                    reaper.ImGui_SetKeyboardFocusHere(ctx)
+                    popup_initialized = true
+                end
+                input_changed, render_tail_ms = reaper.ImGui_InputDouble(ctx, "##Tail(ms)", render_tail_ms)
+                reaper.ImGui_EndPopup(ctx)
+            else
+                popup_initialized = false
+            end
+
             reaper.ImGui_EndChild(ctx)
             reaper.ImGui_SameLine(ctx)
            
@@ -2458,10 +2455,8 @@ function loop()
    
             reaper.ImGui_BeginChild(ctx, "BUTTONS", 52, 138, 0, reaper.ImGui_WindowFlags_None())
             reaper.ImGui_Indent(ctx, 8)
-           
-            reaper.ImGui_Dummy(ctx,4,6)
-           
-            reaper.ImGui_Dummy(ctx,0,18)
+            
+            reaper.ImGui_Dummy(ctx,0,9)
             
             adjust_selection = false
             if reaper.ImGui_Button(ctx, 'ADJ!',34,34) then
@@ -2473,13 +2468,20 @@ function loop()
                 end
                 adjustFolderItems(adjust_selection)
             end
-            
+            reaper.ImGui_Dummy(ctx,0,4)
+
+            if reaper.ImGui_Button(ctx, 'DEL!',34,34) then
+                if next(selected_items) then
+                    deleteSelectedItems()
+                end
+            end
+
             if reaper.ImGui_IsItemClicked(ctx, reaper.ImGui_MouseButton_Right()) then
                 adjust_selection = true
                 adjustFolderItems(adjust_selection)
             end
            
-            reaper.ImGui_Dummy(ctx,0,12)
+            reaper.ImGui_Dummy(ctx,0,4)
                        
             if reaper.ImGui_Button(ctx, "...", 34, 20) then
                 preferences_window = not preferences_window
@@ -2701,8 +2703,10 @@ function loop()
 
             reaper.ImGui_BeginChild(ctx, "tabela")
             renderItemTable(num_tracks)
+            local is_table_hovered = reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows())
             reaper.ImGui_EndChild(ctx)
-            if reaper.ImGui_IsItemHovered(ctx) then
+            
+            if is_table_hovered then
                 reaper.ImGui_SetConfigVar(ctx, reaper.ImGui_ConfigVar_WindowsMoveFromTitleBarOnly(), 1)
             else
                 reaper.ImGui_SetConfigVar(ctx, reaper.ImGui_ConfigVar_WindowsMoveFromTitleBarOnly(), 0)
