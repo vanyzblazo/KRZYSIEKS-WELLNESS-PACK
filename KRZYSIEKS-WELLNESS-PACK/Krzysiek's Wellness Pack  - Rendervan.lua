@@ -1,5 +1,5 @@
 --[[
-@version 1.84
+@version 1.85
 @provides
   fonts/andalemono_rv.ttf
 --]]
@@ -52,34 +52,40 @@ local StyleManager = {
             [reaper.ImGui_StyleVar_WindowRounding()] = 4
         },
         colors = {
-            [reaper.ImGui_Col_WindowBg()] = 0x333333FF,
-            [reaper.ImGui_Col_Text()] = 0xEDEDEDFF,
-            [reaper.ImGui_Col_FrameBg()] = 0x4C4C4CFF,
-            [reaper.ImGui_Col_ChildBg()] = 0x3B3B3BFF,
-            [reaper.ImGui_Col_TitleBg()] = 0x3BA195FF,
-            [reaper.ImGui_Col_TitleBgActive()] = 0x3BA195FF,
-            [reaper.ImGui_Col_TitleBgCollapsed()] = 0x3BA195FF,
-            [reaper.ImGui_Col_Button()] = 0x0FA68AFF,
-            [reaper.ImGui_Col_ButtonHovered()] = 0x0E9980FF,
-            [reaper.ImGui_Col_ButtonActive()] = 0x128C76FF,
-            [reaper.ImGui_Col_Header()] = 0x128C76FF,
-            [reaper.ImGui_Col_HeaderHovered()] = 0x0E9980FF,
-            [reaper.ImGui_Col_HeaderActive()] = 0x128C76FF,
-            [reaper.ImGui_Col_FrameBgHovered()] = 0x414342FF,
-            [reaper.ImGui_Col_SliderGrab()] = 0xB84A62FF,
-            [reaper.ImGui_Col_SliderGrabActive()] = 0xC55B73FF,
-            [reaper.ImGui_Col_FrameBgActive()] = 0x4A3B3EFF,
-            [reaper.ImGui_Col_CheckMark()] = 0x0FA68AFF,
-            [reaper.ImGui_Col_Tab()] = 0x333333FF,
-            [reaper.ImGui_Col_TabHovered()] = 0x3B3B3BFF,
-
-            [reaper.ImGui_Col_PopupBg()] = 0x4C4C4CFF
+            [reaper.ImGui_Col_WindowBg()]          = 0x313131FF,
+            [reaper.ImGui_Col_FrameBg()]           = 0x474747FF,
+            [reaper.ImGui_Col_ChildBg()]           = 0x353535FF,
+            [reaper.ImGui_Col_Text()]              = 0xEDEDEDFF,
+            [reaper.ImGui_Col_TitleBg()]           = 0x389F82FF,
+            [reaper.ImGui_Col_TitleBgActive()]     = 0x389F82FF,
+            [reaper.ImGui_Col_TitleBgCollapsed()]  = 0x389F82FF,
+            [reaper.ImGui_Col_Button()]            = 0x389F82FF,
+            [reaper.ImGui_Col_ButtonHovered()]     = 0x2E8A70FF,
+            [reaper.ImGui_Col_ButtonActive()]      = 0x267A62FF,
+            [reaper.ImGui_Col_Header()]            = 0x389F82FF,
+            [reaper.ImGui_Col_HeaderHovered()]     = 0x2E8A70FF,
+            [reaper.ImGui_Col_HeaderActive()]      = 0x267A62FF,
+            [reaper.ImGui_Col_FrameBgHovered()]    = 0x414342FF,
+            [reaper.ImGui_Col_SliderGrab()]        = 0x7355DEFF,
+            [reaper.ImGui_Col_SliderGrabActive()]  = 0x826EF0FF,
+            [reaper.ImGui_Col_FrameBgActive()]     = 0x5A5A5AFF,
+            [reaper.ImGui_Col_CheckMark()]         = 0x389F82FF,
+            [reaper.ImGui_Col_Tab()]               = 0x333333FF,
+            [reaper.ImGui_Col_TabHovered()]        = 0x3B3B3BFF,
+            [reaper.ImGui_Col_TableHeaderBg()]     = 0x292929FF,
+            [reaper.ImGui_Col_TableBorderLight()]  = 0x292929FF,
+            [reaper.ImGui_Col_TableBorderStrong()] = 0x313131FF,
+            [reaper.ImGui_Col_PopupBg()]           = 0x4C4C4CFF
         },
         dynamic_colors = {
-            selected = 0x128C76FF,
-            second_pass = 0x800080FF
+            selected       = 0x389F82FF,
+            second_pass    = 0x800080FF,
+            timeline_focus = 0xD4882BFF,
+            table_focus    = 0x389F82FF,
+            render_button  = 0xB84A4AFF,
+            action_button  = 0x7355DEFF,
         }
-    }
+        }
 }
 
 function StyleManager.PushStyle(ctx)
@@ -172,6 +178,9 @@ local rename_selected_items = false
 
 local drag_start_scroll_y = 0  -- Track scroll position when drag starts
 local drag_start_content_y = 0  -- Track content position when drag starts
+local focus_mode = "timeline"  -- "timeline" or "table"
+local last_reaper_selected_count = 0
+local pending_paste = false
 
 -- INIT SETTINGS --------------------------------------------------------------------------------------------------------------------------
 
@@ -189,6 +198,7 @@ local ignore_muted_items_when_adj = false
 local window_flags = reaper.ImGui_WindowFlags_NoDocking() | reaper.ImGui_WindowFlags_TopMost()
 local render_tail_enabled = false
 local render_tail_ms = 1000.0 -- Default 1000ms
+local timeline_overlapping_items = {}  -- render items that overlap current timeline selection
 
 -- Normalization settings variables
 local normalize_render = false
@@ -288,6 +298,33 @@ function handleReplaceFilesInWwise()
     else
         -- 3. No conflicts - render and import directly
         renderAndImportToWwise(items_to_replace, nil, {replace_existing = true})
+    end
+end
+
+
+
+
+function updateTimelineOverlappingItems()
+    timeline_overlapping_items = {}
+    local num_sel = reaper.CountSelectedMediaItems(0)
+    if num_sel == 0 then return end
+    for i = 0, num_sel - 1 do
+        local media_item = reaper.GetSelectedMediaItem(0, i)
+        local track = reaper.GetMediaItem_Track(media_item)
+        local folder_track = getTopMostFolderTrack(track)
+        if folder_track and track_folder_map[folder_track] then
+            local ms = reaper.GetMediaItemInfo_Value(media_item, "D_POSITION")
+            local me = ms + reaper.GetMediaItemInfo_Value(media_item, "D_LENGTH")
+            for _, render_item in ipairs(track_folder_map[folder_track]) do
+                if reaper.ValidatePtr(render_item, "MediaItem*") then
+                    local rs = reaper.GetMediaItemInfo_Value(render_item, "D_POSITION")
+                    local re = rs + reaper.GetMediaItemInfo_Value(render_item, "D_LENGTH")
+                    if ms < re and me > rs then
+                        timeline_overlapping_items[render_item] = true
+                    end
+                end
+            end
+        end
     end
 end
 
@@ -1213,7 +1250,8 @@ function shouldUpdateDetection()
     local current_change_count = reaper.GetProjectStateChangeCount(0)
     if current_change_count ~= last_project_change_count then
         last_project_change_count = current_change_count
-        purgeInvalidSelectedItems()  -- <- add this line
+        purgeInvalidSelectedItems()
+
         return true
     end
     return false
@@ -1360,6 +1398,7 @@ function preferencesWindow()
        
         reaper.ImGui_End(ctx)
     end
+    
     StyleManager.PopStyle(ctx)
     reaper.ImGui_PopFont(ctx)
 end
@@ -1431,23 +1470,8 @@ end
 
 function pasteNameToItems()
     local clipboard = reaper.CF_GetClipboard()
-    if clipboard and clipboard ~= "" then
-        for item, _ in pairs(selected_items) do
-            local take = reaper.GetActiveTake(item)
-            if take then
-                reaper.GetSetMediaItemTakeInfo_String(take, "P_NAME", clipboard, true)
-                
-                -- Update region name if it exists
-                local item_start = reaper.GetMediaItemInfo_Value(item, "D_POSITION")
-                local item_end = item_start + reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-                local old_name = reaper.GetTakeName(take)
-                local region_index = findRegionIndexByName(old_name)
-                if region_index then
-                    reaper.SetProjectMarker(region_index, true, item_start, item_end, clipboard)
-                end
-            end
-        end
-    end
+    if not clipboard or clipboard == "" then return end
+    pending_paste = clipboard
 end
 
 
@@ -1471,21 +1495,71 @@ end
 function showItemContextMenu(item)
     if reaper.ImGui_BeginPopup(ctx, "ItemContextMenu") then
     
+
+
         if reaper.ImGui_MenuItem(ctx, "Render selected       | RDR!") then
             renderQueuedRegions()
         end
-        
+        if reaper.ImGui_MenuItem(ctx, "Render all            | alt + RDR!") then
+            local saved_items = {}
+            local saved_items_list = {}
+            for item, props in pairs(selected_items) do saved_items[item] = props end
+            for _, item in ipairs(selected_items_list) do table.insert(saved_items_list, item) end
+            selected_items = {}
+            selected_items_list = {}
+            for folder_track, folder_items in pairs(track_folder_map) do
+                for _, render_item in ipairs(folder_items) do
+                    if reaper.ValidatePtr(render_item, "MediaItem*") then
+                        selected_items[render_item] = {}
+                    end
+                end
+            end
+            updateRenderQueue()
+            renderQueuedRegions()
+            selected_items = saved_items
+            selected_items_list = saved_items_list
+            updateRenderQueue()
+        end
+
         reaper.ImGui_Separator(ctx)
-        
+
         if reaper.ImGui_MenuItem(ctx, "Unselect items        | CLR!") then
             clearSelectedItems()
         end
-        if reaper.ImGui_MenuItem(ctx, "Adjust all items      | ADJ!") then
+        if reaper.ImGui_MenuItem(ctx, "Adjust selected       | ADJ!") then
+            adjustFolderItems(focus_mode == "table")
+        end
+        if reaper.ImGui_MenuItem(ctx, "Adjust all            | alt + ADJ!") then
             adjustFolderItems(false)
         end
-        if reaper.ImGui_MenuItem(ctx, "Adjust selected items | alt + ADJ!") then
-            adjustFolderItems(true)
+
+        reaper.ImGui_Separator(ctx)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(), 0xFF6666FF)
+        if reaper.ImGui_MenuItem(ctx, "Delete selected       | DEL!") then
+            deleteSelectedItems()
         end
+        if reaper.ImGui_MenuItem(ctx, "Delete all            | alt + DEL!") then
+            local saved_items = {}
+            local saved_items_list = {}
+            for item, props in pairs(selected_items) do saved_items[item] = props end
+            for _, item in ipairs(selected_items_list) do table.insert(saved_items_list, item) end
+            selected_items = {}
+            selected_items_list = {}
+            for folder_track, folder_items in pairs(track_folder_map) do
+                for _, render_item in ipairs(folder_items) do
+                    if reaper.ValidatePtr(render_item, "MediaItem*") then
+                        selected_items[render_item] = {}
+                    end
+                end
+            end
+            deleteSelectedItems()
+            selected_items = saved_items
+            selected_items_list = saved_items_list
+            updateRenderQueue()
+        end
+        reaper.ImGui_PopStyleColor(ctx, 1)
+
+
         
         reaper.ImGui_Separator(ctx)
         
@@ -1496,10 +1570,10 @@ function showItemContextMenu(item)
         
         -- Paste name option (applies to ALL selected items)
         local clipboard = reaper.CF_GetClipboard()
-        if reaper.ImGui_MenuItem(ctx, "Paste name | ctrl + V | selected items only", nil, false, clipboard and clipboard ~= "") then
+        if reaper.ImGui_MenuItem(ctx, "Paste name | ctrl + V | to selected items", nil, false, clipboard and clipboard ~= "") then
             pasteNameToItems()
         end
-        if reaper.ImGui_MenuItem(ctx, "Rename selected items | alt + NME!") then
+        if reaper.ImGui_MenuItem(ctx, "Rename selected items | NME!") then
             adjustFolderItems(true)
         end
         
@@ -1562,15 +1636,6 @@ function showItemContextMenu(item)
         if reaper.ImGui_MenuItem(ctx, "Jump to item | " .. reaper.GetTakeName(reaper.GetActiveTake(item))) then
             jumpToItemInTimeline(item)
         end
-        
-        reaper.ImGui_Separator(ctx)
-        
-        -- Delete option (applies to ALL selected items)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(), 0xFF6666FF)
-        if reaper.ImGui_MenuItem(ctx, "Delete | DEL! or hold del 1 sec") then
-            deleteSelectedItems()
-        end
-        reaper.ImGui_PopStyleColor(ctx)
         
         reaper.ImGui_EndPopup(ctx)
     end
@@ -1727,7 +1792,8 @@ end
 function renderItemTable(num_tracks)
     local table_flags = reaper.ImGui_TableFlags_SizingFixedFit() |
                         reaper.ImGui_TableFlags_Resizable() |
-                        reaper.ImGui_TableFlags_BordersV() |
+                        reaper.ImGui_TableFlags_BordersOuter() |
+                        reaper.ImGui_TableFlags_BordersInnerV() |
                         reaper.ImGui_SelectableFlags_SpanAllColumns() |
                         reaper.ImGui_TableFlags_ScrollX()
                         
@@ -1742,7 +1808,13 @@ function renderItemTable(num_tracks)
                 reaper.ImGui_TableSetupColumn(ctx, track_name, reaper.ImGui_TableColumnFlags_None(), column_width)
             end
         end
+
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_CellPadding(), 2, 8)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderHovered(), 0x444444FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderActive(),  0x444444FF)
         reaper.ImGui_TableHeadersRow(ctx)
+        reaper.ImGui_PopStyleColor(ctx, 2)
+        reaper.ImGui_PopStyleVar(ctx)
         
         local max_items = 0
         
@@ -1848,6 +1920,17 @@ function renderItemTable(num_tracks)
         
         -- Track which items are currently in drag rectangle
         local items_in_current_drag_rect = {}
+
+
+        -- Click on empty table space deselects all
+        if mouse_clicked and not currently_dragging and clicked_item == nil then
+            if reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows()) then
+                selected_items = {}
+                selected_items_list = {}
+                updateRenderQueue()
+            end
+        end
+
         
         -- Render the table rows
         for item_idx = 1, max_items do
@@ -1869,21 +1952,23 @@ function renderItemTable(num_tracks)
                         -- Apply styling for items
                         local colors_pushed = 0
                         if is_selected then
-                            -- Selected item colors
+                        
                             local base_color = selected_items[item].second_pass and
                                 StyleManager.style.dynamic_colors.second_pass or
                                 StyleManager.style.dynamic_colors.selected
                             
-                            -- Make hover color brighter for selected items
-                            local hover_color = base_color | 0x20202000  -- Add brightness
+                            if focus_mode == "timeline" then
+                                base_color = base_color & 0xFFFFFF55  -- dim the alpha when timeline focused
+                            end
                             
-                            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Header(), base_color)
+                            local hover_color = base_color | 0x20202000
+                            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Header(),        base_color)
                             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderHovered(), hover_color)
-                            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderActive(), base_color)
+                            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderActive(),  base_color)
                             colors_pushed = 3
+                        
                         else
-                            -- Unselected item colors - only set hover to be dimmer than selected
-                            local dim_hover_color = 0x4A4A4AFF  -- Dimmer than selected items
+                            local dim_hover_color = 0x4A4A4AFF
                             reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderHovered(), dim_hover_color)
                             colors_pushed = 1
                         end
@@ -1894,6 +1979,14 @@ function renderItemTable(num_tracks)
                         -- Get item rectangle
                         local item_min_x, item_min_y = reaper.ImGui_GetItemRectMin(ctx)
                         local item_max_x, item_max_y = reaper.ImGui_GetItemRectMax(ctx)
+
+                        if timeline_overlapping_items[item] then
+                        local draw_list = reaper.ImGui_GetWindowDrawList(ctx)
+                        reaper.ImGui_DrawList_AddRectFilled(draw_list,
+                            item_min_x, item_min_y,
+                            item_min_x + 3, item_max_y,
+                            StyleManager.style.dynamic_colors.timeline_focus)
+                        end
                         
                         -- Track if mouse is over table
                         mouse_over_table = false
@@ -1923,6 +2016,9 @@ function renderItemTable(num_tracks)
                         
                         -- Handle click (only if not dragging)
                         if item_clicked and not currently_dragging then
+                            focus_mode = "table"
+                            last_reaper_selected_count = reaper.CountSelectedMediaItems(0)
+
                             clicked_item = item
                             
                             if shift_pressed and last_selected_item then
@@ -2090,6 +2186,8 @@ function renderItemTable(num_tracks)
         
         -- Apply drag selection if currently dragging (selection drag only, not Wwise drag)
         if currently_dragging then
+                focus_mode = "table"
+                last_reaper_selected_count = reaper.CountSelectedMediaItems(0) 
             
             if drag_clicked_item == nil then
                 -- CASE 1: Drag started from empty space (table background)
@@ -2223,13 +2321,6 @@ function renderItemTable(num_tracks)
                 pasteNameToItems()
             end
         end
-        
-        if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_Delete()) then
-            local duration = reaper.ImGui_GetKeyDownDuration(ctx, reaper.ImGui_Key_Delete())
-            if duration > 1 then
-                deleteSelectedItems()
-            end
-        end
 
         if context_menu_item then
             showItemContextMenu(context_menu_item)
@@ -2269,7 +2360,49 @@ end
 function loop()
     if shouldUpdateDetection() then
         detectFolderItemsAndRegions()
+        updateTimelineOverlappingItems()
     end
+
+    local reaper_selected = reaper.CountSelectedMediaItems(0)
+    
+    -- build current set (no ImGui needed)
+    local current_selected_set = {}
+    for i = 0, reaper_selected - 1 do
+        current_selected_set[reaper.GetSelectedMediaItem(0, i)] = true
+    end
+    
+    -- handle timeline cleared -> switch to table
+    local selection_changed = reaper_selected ~= last_reaper_selected_count
+    if not selection_changed then
+        for item, _ in pairs(current_selected_set) do
+            if not last_reaper_selected_set[item] then
+                selection_changed = true
+                break
+            end
+        end
+    end
+    if selection_changed then
+        last_reaper_selected_count = reaper_selected
+        last_reaper_selected_set = current_selected_set
+        if reaper_selected == 0 and next(selected_items) then
+            focus_mode = "table"
+        end
+    end
+
+    local last_mouse_state = 0
+    
+    -- in loop(), outside if visible then, at the top:
+    local mouse_state = reaper.JS_Mouse_GetState(1)  -- 1 = left button
+    local mouse_just_clicked = (mouse_state == 1) and (last_mouse_state == 0)
+    last_mouse_state = mouse_state
+    
+    if mouse_just_clicked then
+        local window, _, _ = reaper.BR_GetMouseCursorContext()
+        if window == "arrange" and reaper_selected > 0 then
+            focus_mode = "timeline"
+        end
+    end
+    
     
     if visible then
         reaper.ImGui_SetNextWindowSizeConstraints(ctx, 544, 420, 1000, 1000)
@@ -2278,11 +2411,11 @@ function loop()
         reaper.ImGui_PushFont(ctx, base_font, 11)
 
         local should_display
- 
+        reaper.ImGui_SetNextWindowCollapsed(ctx, false, reaper.ImGui_Cond_Appearing())
         should_display, visible = reaper.ImGui_Begin(ctx, 'NAME / RENDER / BE WELL - by Krzysztof Chodkiewicz', visible, window_flags)
        
         if should_display then
-        
+         
             -------------------------------------------------------------------------------------------------------------------------------------------
             ---------------------------SETTINGS
             -------------------------------------------------------------------------------------------------------------------------------------------
@@ -2449,47 +2582,163 @@ function loop()
             -------------------------------------------------------------------------------------------------------------------------------------------
            
             reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FramePadding(), 0, 0)
-            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0xB84A62FF)
-            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xC55B73FF)
-            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0xA13B53FF)
    
-            reaper.ImGui_BeginChild(ctx, "BUTTONS", 52, 138, 0, reaper.ImGui_WindowFlags_None())
-            reaper.ImGui_Indent(ctx, 8)
+            reaper.ImGui_BeginChild(ctx, "BUTTONS", 52, 180, 0, reaper.ImGui_WindowFlags_None())
+            reaper.ImGui_Indent(ctx, 9)
             
-            reaper.ImGui_Dummy(ctx,0,9)
+            reaper.ImGui_Dummy(ctx,0,5)
             
             adjust_selection = false
-            if reaper.ImGui_Button(ctx, 'ADJ!',34,34) then
-                
+
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),        StyleManager.style.dynamic_colors.action_button)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0x6648D9FF)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),  0x5D3CC1FF)
+            
+            if reaper.ImGui_Button(ctx, 'ADJ!', 34, 34) then
                 if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Alt()) then
-                    adjust_selection = true
+                    adjustFolderItems(false)  -- alt = all
+                elseif focus_mode == "timeline" then
+                    local saved_items = {}
+                    local saved_items_list = {}
+                    for item, props in pairs(selected_items) do saved_items[item] = props end
+                    for _, item in ipairs(selected_items_list) do table.insert(saved_items_list, item) end
+                    selected_items = {}
+                    selected_items_list = {}
+                    for render_item, _ in pairs(timeline_overlapping_items) do
+                        if reaper.ValidatePtr(render_item, "MediaItem*") then
+                            selected_items[render_item] = {}
+                        end
+                    end
+                    adjustFolderItems(true)
+                    selected_items = saved_items
+                    selected_items_list = saved_items_list
+                    updateRenderQueue()
                 else
-                    adjust_selection = false
-                end
-                adjustFolderItems(adjust_selection)
-            end
-            reaper.ImGui_Dummy(ctx,0,4)
-
-            if reaper.ImGui_Button(ctx, 'DEL!',34,34) then
-                if next(selected_items) then
-                    deleteSelectedItems()
+                    adjustFolderItems(true)  -- table mode: adjust only selected
                 end
             end
 
-            if reaper.ImGui_IsItemClicked(ctx, reaper.ImGui_MouseButton_Right()) then
-                adjust_selection = true
-                adjustFolderItems(adjust_selection)
+            reaper.ImGui_PopStyleColor(ctx, 3)
+
+            reaper.ImGui_Dummy(ctx,0,5)
+
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),        StyleManager.style.dynamic_colors.action_button)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0x6648D9FF)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),  0x5D3CC1FF)
+            if reaper.ImGui_Button(ctx, 'DEL!', 34, 34) then
+                if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Alt()) then
+                    -- alt = select all render items then delete
+                    selected_items = {}
+                    selected_items_list = {}
+                    for folder_track, folder_items in pairs(track_folder_map) do
+                        for _, render_item in ipairs(folder_items) do
+                            if reaper.ValidatePtr(render_item, "MediaItem*") then
+                                selected_items[render_item] = {}
+                            end
+                        end
+                    end
+                elseif focus_mode == "timeline" then
+                    selected_items = {}
+                    selected_items_list = {}
+                    local num_sel = reaper.CountSelectedMediaItems(0)
+                    for i = 0, num_sel - 1 do
+                        local media_item = reaper.GetSelectedMediaItem(0, i)
+                        local track = reaper.GetMediaItem_Track(media_item)
+                        local folder_track = getTopMostFolderTrack(track)
+                        if folder_track and track_folder_map[folder_track] then
+                            local ms = reaper.GetMediaItemInfo_Value(media_item, "D_POSITION")
+                            local me = ms + reaper.GetMediaItemInfo_Value(media_item, "D_LENGTH")
+                            for _, render_item in ipairs(track_folder_map[folder_track]) do
+                                if reaper.ValidatePtr(render_item, "MediaItem*") then
+                                    local rs = reaper.GetMediaItemInfo_Value(render_item, "D_POSITION")
+                                    local re = rs + reaper.GetMediaItemInfo_Value(render_item, "D_LENGTH")
+                                    if ms < re and me > rs then
+                                        selected_items[render_item] = {}
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                deleteSelectedItems()
             end
+            reaper.ImGui_PopStyleColor(ctx, 3)
+
            
-            reaper.ImGui_Dummy(ctx,0,4)
+            reaper.ImGui_Dummy(ctx,0,5)
                        
             if reaper.ImGui_Button(ctx, "...", 34, 20) then
                 preferences_window = not preferences_window
             end
+
+            reaper.ImGui_Dummy(ctx, 0, 5)
+
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),        StyleManager.style.dynamic_colors.render_button)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), StyleManager.style.dynamic_colors.render_button | 0x15151500)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),  StyleManager.style.dynamic_colors.render_button & 0xDDDDDDFF)
+           if reaper.ImGui_Button(ctx, 'RDR!', 34, 34) then
+                local did_render = false
+
+                if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Alt()) then
+                    local saved_items = {}
+                    local saved_items_list = {}
+                    for item, props in pairs(selected_items) do
+                        saved_items[item] = props
+                    end
+                    for _, item in ipairs(selected_items_list) do
+                        table.insert(saved_items_list, item)
+                    end
+                    selected_items = {}
+                    selected_items_list = {}
+                    for folder_track, folder_items in pairs(track_folder_map) do
+                        for _, render_item in ipairs(folder_items) do
+                            if reaper.ValidatePtr(render_item, "MediaItem*") then
+                                selected_items[render_item] = {}
+                            end
+                        end
+                    end
+                    updateRenderQueue()
+                    renderQueuedRegions()
+                    selected_items = saved_items
+                    selected_items_list = saved_items_list
+                    updateRenderQueue()
+                    did_render = true
+
+                elseif focus_mode == "timeline" then
+                    selected_items = {}
+                    selected_items_list = {}
+                    local num_sel = reaper.CountSelectedMediaItems(0)
+                    for i = 0, num_sel - 1 do
+                        local media_item = reaper.GetSelectedMediaItem(0, i)
+                        local track = reaper.GetMediaItem_Track(media_item)
+                        local folder_track = getTopMostFolderTrack(track)
+                        if folder_track and track_folder_map[folder_track] then
+                            local ms = reaper.GetMediaItemInfo_Value(media_item, "D_POSITION")
+                            local me = ms + reaper.GetMediaItemInfo_Value(media_item, "D_LENGTH")
+                            for _, render_item in ipairs(track_folder_map[folder_track]) do
+                                if reaper.ValidatePtr(render_item, "MediaItem*") then
+                                    local rs = reaper.GetMediaItemInfo_Value(render_item, "D_POSITION")
+                                    local re = rs + reaper.GetMediaItemInfo_Value(render_item, "D_LENGTH")
+                                    if ms < re and me > rs then
+                                        selected_items[render_item] = {}
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    updateRenderQueue()
+                end
+
+                if not did_render then
+                    renderQueuedRegions()
+                end
+            end
+
+            reaper.ImGui_PopStyleColor(ctx, 3)
+            
             reaper.ImGui_Unindent(ctx)
            
             reaper.ImGui_EndChild(ctx)
-            reaper.ImGui_PopStyleColor(ctx, 3)
             reaper.ImGui_PopStyleVar(ctx)
            
             
@@ -2501,7 +2750,7 @@ function loop()
             -------------------------------------------------------------------------------------------------------------------------------------------
            
 
-            reaper.ImGui_BeginChild(ctx, "NAME", 460, 50, 0, reaper.ImGui_WindowFlags_None())
+            reaper.ImGui_BeginChild(ctx, "NAME", 410, 50, 0, reaper.ImGui_WindowFlags_None())
            
             reaper.ImGui_Dummy(ctx,0,4)
             reaper.ImGui_Indent(ctx, 8)
@@ -2509,7 +2758,7 @@ function loop()
             reaper.ImGui_AlignTextToFramePadding(ctx)
             reaper.ImGui_Text(ctx, "N:")
             reaper.ImGui_SameLine(ctx)
-            reaper.ImGui_SetNextItemWidth(ctx, 254)
+            reaper.ImGui_SetNextItemWidth(ctx, 257)
            
             if first_open then
                 reaper.ImGui_SetKeyboardFocusHere(ctx)
@@ -2555,33 +2804,30 @@ function loop()
             reaper.ImGui_Dummy(ctx,0,0)
             reaper.ImGui_SameLine(ctx)
             
-            if reaper.ImGui_Button(ctx, 'NME!',34,34) then
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),        StyleManager.style.dynamic_colors.action_button)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0x6648D9FF)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),  0x5D3CC1FF)
+            if reaper.ImGui_Button(ctx, 'NME!', 34, 34) then
                 if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Alt()) then
-                    rename_selected_items = true
+                    -- alt = select all render items then rename
+                    selected_items = {}
+                    selected_items_list = {}
+                    for folder_track, folder_items in pairs(track_folder_map) do
+                        for _, render_item in ipairs(folder_items) do
+                            if reaper.ValidatePtr(render_item, "MediaItem*") then
+                                selected_items[render_item] = {}
+                                table.insert(selected_items_list, render_item)
+                            end
+                        end
+                    end
+                    nameRename(num_channels, true)
                 else
-                    rename_selected_items = false
+                    nameRename(num_channels, focus_mode == "table")
                 end
-                nameRename(num_channels,rename_selected_items)
             end
+            reaper.ImGui_PopStyleColor(ctx, 3)
             
-            if reaper.ImGui_IsItemClicked(ctx, reaper.ImGui_MouseButton_Right()) then
-                rename_selected_items = true
-                nameRename(num_channels,rename_selected_items)
-            end
-            
-            rename_selected_items = false
-            
-            reaper.ImGui_SameLine(ctx)
-            reaper.ImGui_Dummy(ctx,0,0)
-            reaper.ImGui_SameLine(ctx)
-            
-            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(), 0xB84A62FF)
-            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0xC55B73FF)
-            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(), 0xA13B53FF)
-            if reaper.ImGui_Button(ctx, 'RDR!',34,34) then
-                renderQueuedRegions()
-            end
-            reaper.ImGui_PopStyleColor(ctx,3)
+            rename_selected_items = false            
             
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_Unindent(ctx)  
@@ -2595,7 +2841,7 @@ function loop()
            ---------------------------TABLE HEADER
            -------------------------------------------------------------------------------------------------------------------------------------------          
            
-            reaper.ImGui_BeginChild(ctx, "TABLE HEADER", 460, 50, reaper.ImGui_WindowFlags_None())
+            reaper.ImGui_BeginChild(ctx, "TABLE HEADER", 410, 50, reaper.ImGui_WindowFlags_None())
             reaper.ImGui_Dummy(ctx,0,4)
 
             reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FramePadding(), 8, 10)
@@ -2605,11 +2851,11 @@ function loop()
             reaper.ImGui_Text(ctx, "F:")
             reaper.ImGui_Unindent(ctx)
             reaper.ImGui_SameLine(ctx)
-            reaper.ImGui_SetNextItemWidth(ctx, 254)
+            reaper.ImGui_SetNextItemWidth(ctx, 164)
             _, filter_text = reaper.ImGui_InputText(ctx, "##FLTR", filter_text)
            
             reaper.ImGui_SameLine(ctx)
-            reaper.ImGui_Dummy(ctx, 6, 0)
+            reaper.ImGui_Dummy(ctx, 1, 0)
             reaper.ImGui_SameLine(ctx)
             
             if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Escape()) then
@@ -2623,7 +2869,9 @@ function loop()
             -- Determine button label and action based on selection state
             local has_selection = next(selected_items) ~= nil
             local button_label = has_selection and "CLR!" or "ALL!"
-            
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),        StyleManager.style.dynamic_colors.action_button)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), 0x6648D9FF)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),  0x5D3CC1FF)
             if reaper.ImGui_Button(ctx, button_label, 34, 34) then
                 if has_selection then
                     -- Clear selection
@@ -2641,11 +2889,11 @@ function loop()
                     updateRenderQueue()
                 end
             end
-            reaper.ImGui_SameLine(ctx)
-            reaper.ImGui_Dummy(ctx, 0, 0)
+            reaper.ImGui_PopStyleColor(ctx, 3)
+
             reaper.ImGui_SameLine(ctx)
             
-            reaper.ImGui_BeginChild(ctx, "Selection Summary", 102)
+            reaper.ImGui_BeginChild(ctx, "Selection Summary", 165)
             
             local selected_info = {}
             
@@ -2661,11 +2909,33 @@ function loop()
             -- Group them using your existing logic
             local grouped = wwiseGroupItems(selected_info)
             local total_selected = #selected_info
+
+            if focus_mode == "timeline" then
+                total_selected = 0
+                for render_item, _ in pairs(timeline_overlapping_items) do
+                    total_selected = total_selected + 1
+                end
+            end
             
             -- Display summary label
             reaper.ImGui_AlignTextToFramePadding(ctx)
 
-            reaper.ImGui_Text(ctx, string.format(" SELECTED: %d", total_selected))
+            reaper.ImGui_Text(ctx, string.format(" SEL: %-4d|", total_selected))
+
+            reaper.ImGui_SameLine(ctx)
+
+            local focus_label = focus_mode == "timeline" and "ARRANGE" or ".TABLE."
+
+            local focus_color = focus_mode == "timeline"
+                and StyleManager.style.dynamic_colors.timeline_focus
+                or  StyleManager.style.dynamic_colors.table_focus
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),        focus_color)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(), focus_color | 0x15151500)
+            reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),  focus_color & 0xDDDDDDFF)
+            if reaper.ImGui_Button(ctx, focus_label, 62, 34) then
+                focus_mode = focus_mode == "timeline" and "table" or "timeline"
+            end
+            reaper.ImGui_PopStyleColor(ctx, 3)
             
             reaper.ImGui_EndChild(ctx)
             
@@ -2674,6 +2944,21 @@ function loop()
                 reaper.ImGui_BeginTooltip(ctx)
                 if total_selected == 0 then
                     reaper.ImGui_Text(ctx, "No items selected.")
+                elseif focus_mode == "timeline" then
+                    local tl_info = {}
+                    for item, _ in pairs(timeline_overlapping_items) do
+                        if reaper.ValidatePtr(item, "MediaItem*") then
+                            local take = reaper.GetActiveTake(item)
+                            if take then
+                                local _, name = reaper.GetSetMediaItemTakeInfo_String(take, "P_NAME", "", false)
+                                table.insert(tl_info, { name = name })
+                            end
+                        end
+                    end
+                    local tl_grouped = wwiseGroupItems(tl_info)
+                    for group_name, items in pairs(tl_grouped) do
+                        reaper.ImGui_Text(ctx, string.format("%s (%d)", group_name, #items))
+                    end
                 else
                     for group_name, items in pairs(grouped) do
                         reaper.ImGui_Text(ctx, string.format("%s (%d)", group_name, #items))
@@ -2700,6 +2985,7 @@ function loop()
             local num_tracks = #sorted_folder_tracks
             
             reaper.ImGui_Dummy(ctx, 0, 0)
+            
 
             reaper.ImGui_BeginChild(ctx, "tabela")
             renderItemTable(num_tracks)
@@ -2712,11 +2998,12 @@ function loop()
                 reaper.ImGui_SetConfigVar(ctx, reaper.ImGui_ConfigVar_WindowsMoveFromTitleBarOnly(), 0)
             end
             reaper.ImGui_End(ctx)
-            
         end
+        
         StyleManager.PopStyle(ctx)
         reaper.ImGui_PopFont(ctx)
     end
+    
     if visible then
         preferencesWindow()
         reaper.defer(loop)
