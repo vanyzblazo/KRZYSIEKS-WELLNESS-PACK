@@ -1,5 +1,5 @@
 --[[
-@version 1.85
+@version 1.86
 @provides
   fonts/andalemono_rv.ttf
 --]]
@@ -181,6 +181,9 @@ local drag_start_content_y = 0  -- Track content position when drag starts
 local focus_mode = "timeline"  -- "timeline" or "table"
 local last_reaper_selected_count = 0
 local pending_paste = false
+local context_menu_item_name = ""
+local context_menu_item_channels = "2"
+
 
 -- INIT SETTINGS --------------------------------------------------------------------------------------------------------------------------
 
@@ -1494,8 +1497,6 @@ end
 
 function showItemContextMenu(item)
     if reaper.ImGui_BeginPopup(ctx, "ItemContextMenu") then
-    
-
 
         if reaper.ImGui_MenuItem(ctx, "Render selected       | RDR!") then
             renderQueuedRegions()
@@ -1539,23 +1540,18 @@ function showItemContextMenu(item)
             deleteSelectedItems()
         end
         if reaper.ImGui_MenuItem(ctx, "Delete all            | alt + DEL!") then
-            local saved_items = {}
-            local saved_items_list = {}
-            for item, props in pairs(selected_items) do saved_items[item] = props end
-            for _, item in ipairs(selected_items_list) do table.insert(saved_items_list, item) end
             selected_items = {}
             selected_items_list = {}
             for folder_track, folder_items in pairs(track_folder_map) do
                 for _, render_item in ipairs(folder_items) do
                     if reaper.ValidatePtr(render_item, "MediaItem*") then
                         selected_items[render_item] = {}
+                        table.insert(selected_items_list, render_item)
                     end
                 end
             end
             deleteSelectedItems()
-            selected_items = saved_items
-            selected_items_list = saved_items_list
-            updateRenderQueue()
+            context_menu_item = nil  -- item pointers are now dead
         end
         reaper.ImGui_PopStyleColor(ctx, 1)
 
@@ -1564,10 +1560,10 @@ function showItemContextMenu(item)
         reaper.ImGui_Separator(ctx)
         
         -- Copy name option (only from right-clicked item)
-        if reaper.ImGui_MenuItem(ctx, "Copy name  | ctrl + C | " .. reaper.GetTakeName(reaper.GetActiveTake(item))) then
+        if reaper.ImGui_MenuItem(ctx, "Copy name  | ctrl + C | " .. context_menu_item_name) then
             copyItemName(item)
         end
-        
+
         -- Paste name option (applies to ALL selected items)
         local clipboard = reaper.CF_GetClipboard()
         if reaper.ImGui_MenuItem(ctx, "Paste name | ctrl + V | to selected items", nil, false, clipboard and clipboard ~= "") then
@@ -1596,10 +1592,8 @@ function showItemContextMenu(item)
         reaper.ImGui_Separator(ctx)
         
         -- Channel count submenu (applies to ALL selected items)
-        local note = reaper.ULT_GetMediaItemNote(item)
-        local current_channels = note:match("CH: (%d+)") or "2"
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(), 0xfffb5dFF)
-        if reaper.ImGui_BeginMenu(ctx, "Channel count: " .. current_channels, true) then
+        if reaper.ImGui_BeginMenu(ctx, "Channel count: " .. context_menu_item_channels, true) then
             local common_counts = {"1", "2", "3", "4", "6", "8"}
             for _, count in ipairs(common_counts) do
                 if reaper.ImGui_MenuItem(ctx, count, nil, count == current_channels) then
@@ -1633,7 +1627,7 @@ function showItemContextMenu(item)
         reaper.ImGui_Separator(ctx)
         
         -- Jump to item option (only for right-clicked item)
-        if reaper.ImGui_MenuItem(ctx, "Jump to item | " .. reaper.GetTakeName(reaper.GetActiveTake(item))) then
+        if reaper.ImGui_MenuItem(ctx, "Jump to item | " .. context_menu_item_name) then
             jumpToItemInTimeline(item)
         end
         
@@ -1924,7 +1918,8 @@ function renderItemTable(num_tracks)
 
         -- Click on empty table space deselects all
         if mouse_clicked and not currently_dragging and clicked_item == nil then
-            if reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows()) then
+            if not reaper.ImGui_IsPopupOpen(ctx, "ItemContextMenu") and
+            reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows()) then
                 selected_items = {}
                 selected_items_list = {}
                 updateRenderQueue()
@@ -2159,11 +2154,13 @@ function renderItemTable(num_tracks)
                                 table.insert(selected_items_list, item)
                                 updateRenderQueue()
                             end
-                            
+                            local take = reaper.GetActiveTake(item)
+                            context_menu_item_name = take and reaper.GetTakeName(take) or ""
+                            local note = reaper.ULT_GetMediaItemNote(item)
+                            context_menu_item_channels = note:match("CH: (%d+)") or "2"
                             reaper.ImGui_OpenPopup(ctx, "ItemContextMenu")
                             context_menu_item = item
                         end
-                        
                         
                         -- Show tooltip on hover
                         if reaper.ImGui_IsItemHovered(ctx) then
