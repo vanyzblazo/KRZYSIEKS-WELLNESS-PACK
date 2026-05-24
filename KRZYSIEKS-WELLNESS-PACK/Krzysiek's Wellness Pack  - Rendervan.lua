@@ -1,5 +1,5 @@
 --[[
-@version 1.86
+@version 1.87
 @provides
   fonts/andalemono_rv.ttf
 --]]
@@ -841,7 +841,7 @@ function renderQueuedRegions()
         reaper.GetSetProjectInfo(0, "RENDER_SETTINGS", render_settings, true)
 
         if render_tail_enabled then
-            reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 2, true)  -- 2 = all render sources
+            reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 4, true)  -- 4 = all render sources
             reaper.GetSetProjectInfo(0, "RENDER_TAILMS", render_tail_ms, true)
         else
             reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 0, true)
