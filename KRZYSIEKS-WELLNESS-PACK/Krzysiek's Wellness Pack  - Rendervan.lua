@@ -1,5 +1,5 @@
 --[[
-@version 1.87
+@version 1.88
 @provides
   fonts/andalemono_rv.ttf
 --]]
@@ -180,6 +180,7 @@ local drag_start_scroll_y = 0  -- Track scroll position when drag starts
 local drag_start_content_y = 0  -- Track content position when drag starts
 local focus_mode = "timeline"  -- "timeline" or "table"
 local last_reaper_selected_count = 0
+last_reaper_selected_set = {}
 local pending_paste = false
 local context_menu_item_name = ""
 local context_menu_item_channels = "2"
@@ -202,6 +203,20 @@ local window_flags = reaper.ImGui_WindowFlags_NoDocking() | reaper.ImGui_WindowF
 local render_tail_enabled = false
 local render_tail_ms = 1000.0 -- Default 1000ms
 local timeline_overlapping_items = {}  -- render items that overlap current timeline selection
+
+-- BWF / embedded markers settings
+local write_bwf_chunk = false
+local bwf_include_project_filename = false
+local bwf_marker_options = {
+    "Do not include markers or regions",
+    "Markers + regions",
+    "Markers + regions starting with #",
+    "Markers only",
+    "Markers starting with # only",
+    "Regions only",
+    "Regions starting with # only"
+}
+local selected_bwf_marker_index = 1 -- Default: do not include
 
 -- Normalization settings variables
 local normalize_render = false
@@ -505,6 +520,9 @@ function SaveSettingsToCSV()
         file:write("ignore_muted_items_when_adj,", tostring(ignore_muted_items_when_adj), "\n")
         file:write("render_tail_enabled,", tostring(render_tail_enabled), "\n")
         file:write("render_tail_ms,", tostring(render_tail_ms), "\n")
+        file:write("write_bwf_chunk,", tostring(write_bwf_chunk), "\n")
+        file:write("bwf_include_project_filename,", tostring(bwf_include_project_filename), "\n")
+        file:write("selected_bwf_marker_index,", tostring(selected_bwf_marker_index), "\n")
         
         -- Add path history - encode as semicolon-separated string
         local path_history_string = table.concat(path_history, ";")
@@ -561,7 +579,13 @@ function LoadSettingsFromCSV()
                 elseif key == "render_tail_enabled" then
                     render_tail_enabled = (value == "true")
                 elseif key == "render_tail_ms" then
-                    render_tail_ms = tonumber(value)
+                    render_tail_ms = tonumber(value) or 1000.0
+                elseif key == "write_bwf_chunk" then
+                    write_bwf_chunk = (value == "true")
+                elseif key == "bwf_include_project_filename" then
+                    bwf_include_project_filename = (value == "true")
+                elseif key == "selected_bwf_marker_index" then
+                    selected_bwf_marker_index = tonumber(value) or 1
                 elseif key == "path_history" then
                     -- Decode semicolon-separated string back to table
                     path_history = {}
@@ -779,10 +803,14 @@ function renderQueuedRegions()
     local function setRenderParameters()
         -- Sample rate
         reaper.GetSetProjectInfo(0, "RENDER_SRATE", 1000 * tonumber(render_sample_rates[selected_sample_rate_index]:match("%d+")), true)
-        -- Bitdepth
 
-        local render_cfg_string = ultraschall.CreateRenderCFG_WAV(selected_bitdepth_index - 1, 1, 0, 0, false)
+        -- Format: bitdepth + BWF chunk + embedded markers
+        -- BWFChunk: &1 = write BWF ('bext') chunk, &2 = include project filename in BWF data
+        local bwf_flags = (write_bwf_chunk and 1 or 0) | ((write_bwf_chunk and bwf_include_project_filename) and 2 or 0)
+        local marker_mode = (selected_bwf_marker_index or 1) - 1
+        local render_cfg_string = ultraschall.CreateRenderCFG_WAV(selected_bitdepth_index - 1, 1, bwf_flags, marker_mode, false)
         reaper.GetSetProjectInfo_String(0, "RENDER_FORMAT", render_cfg_string, true)
+
         -- Normalization
         if normalize_render then
             normalization_settings = normalization_settings | 1  -- Enable normalization
@@ -840,8 +868,13 @@ function renderQueuedRegions()
         end
         reaper.GetSetProjectInfo(0, "RENDER_SETTINGS", render_settings, true)
 
+        -- Bounds: always "all project regions" so the tail flag below applies consistently
+        -- (previously bounds were left as whatever the project had, so tail only worked sometimes)
+        reaper.GetSetProjectInfo(0, "RENDER_BOUNDSFLAG", 3, true)
+
         if render_tail_enabled then
-            reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 4, true)  -- 4 = all render sources
+            -- Enable tail for every bounds type (&8 = all project regions is the one used here)
+            reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 0x1FF, true)
             reaper.GetSetProjectInfo(0, "RENDER_TAILMS", render_tail_ms, true)
         else
             reaper.GetSetProjectInfo(0, "RENDER_TAILFLAG", 0, true)
@@ -1355,6 +1388,31 @@ function preferencesWindow()
         _, render_via_master = reaper.ImGui_Checkbox(ctx, "##render_via_master", render_via_master)
         reaper.ImGui_SameLine(ctx)
         reaper.ImGui_Text(ctx, ":Render with Master Track processing")
+
+        reaper.ImGui_Dummy(ctx, 0, 5)
+        reaper.ImGui_Separator(ctx)
+        reaper.ImGui_PushFont(ctx, base_font, 13)
+        reaper.ImGui_Text(ctx, "WAV / BWF")
+        reaper.ImGui_PopFont(ctx)
+        reaper.ImGui_Separator(ctx)
+        reaper.ImGui_Dummy(ctx, 0, 5)
+
+        _, write_bwf_chunk = reaper.ImGui_Checkbox(ctx, "##write_bwf_chunk", write_bwf_chunk)
+        reaper.ImGui_SameLine(ctx)
+        reaper.ImGui_Text(ctx, ":Write BWF ('bext') chunk")
+
+        if not write_bwf_chunk then reaper.ImGui_BeginDisabled(ctx) end
+        _, bwf_include_project_filename = reaper.ImGui_Checkbox(ctx, "##bwf_include_project_filename", bwf_include_project_filename)
+        reaper.ImGui_SameLine(ctx)
+        reaper.ImGui_Text(ctx, ":Include project filename in BWF data")
+        if not write_bwf_chunk then reaper.ImGui_EndDisabled(ctx) end
+
+        reaper.ImGui_AlignTextToFramePadding(ctx)
+        reaper.ImGui_Text(ctx, "Markers/regions:")
+        reaper.ImGui_SameLine(ctx)
+        reaper.ImGui_SetNextItemWidth(ctx, 280)
+        local _, bwf_idx = reaper.ImGui_Combo(ctx, "##bwf_markers", selected_bwf_marker_index - 1, table.concat(bwf_marker_options, "\0") .. "\0")
+        selected_bwf_marker_index = bwf_idx + 1
        
         reaper.ImGui_Dummy(ctx, 0, 5)
         reaper.ImGui_Separator(ctx)
@@ -1783,6 +1841,17 @@ end
 ----------------------------------------------------------------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------------------------------------------------------------
 
+-- Helper: remove item from selection (map + ordered list)
+local function unselectItem(item)
+    selected_items[item] = nil
+    for i, v in ipairs(selected_items_list) do
+        if v == item then
+            table.remove(selected_items_list, i)
+            break
+        end
+    end
+end
+
 function renderItemTable(num_tracks)
     local table_flags = reaper.ImGui_TableFlags_SizingFixedFit() |
                         reaper.ImGui_TableFlags_Resizable() |
@@ -1831,10 +1900,10 @@ function renderItemTable(num_tracks)
             end
         end
         
-        -- Get keyboard modifier states
-        local ctrl_pressed = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftCtrl())
-        local shift_pressed = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftShift())
-        local alt_pressed = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftAlt())
+        -- Get keyboard modifier states (Mod_* covers both left and right keys)
+        local ctrl_pressed  = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Ctrl())
+        local shift_pressed = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Shift())
+        local alt_pressed   = reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Alt())
         
         -- Handle mouse events
         local mouse_clicked = reaper.ImGui_IsMouseClicked(ctx, 0)
@@ -1846,6 +1915,7 @@ function renderItemTable(num_tracks)
         local current_scroll_y = reaper.ImGui_GetScrollY(ctx)
         
         local clicked_item = nil
+        local any_item_hovered = false
         
         -- Drag state management
         local drag_threshold = 3 -- pixels
@@ -1915,17 +1985,6 @@ function renderItemTable(num_tracks)
         -- Track which items are currently in drag rectangle
         local items_in_current_drag_rect = {}
 
-
-        -- Click on empty table space deselects all
-        if mouse_clicked and not currently_dragging and clicked_item == nil then
-            if not reaper.ImGui_IsPopupOpen(ctx, "ItemContextMenu") and
-            reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows()) then
-                selected_items = {}
-                selected_items_list = {}
-                updateRenderQueue()
-            end
-        end
-
         
         -- Render the table rows
         for item_idx = 1, max_items do
@@ -1983,10 +2042,9 @@ function renderItemTable(num_tracks)
                             StyleManager.style.dynamic_colors.timeline_focus)
                         end
                         
-                        -- Track if mouse is over table
-                        mouse_over_table = false
+                        -- Track if mouse is over any item
                         if reaper.ImGui_IsItemHovered(ctx) then
-                            mouse_over_table = true
+                            any_item_hovered = true
                         end 
                         
                         -- Determine if this item was clicked at drag start (only for selection drag, not Wwise drag)
@@ -2089,54 +2147,44 @@ function renderItemTable(num_tracks)
                                 end
                                 
                             elseif ctrl_pressed then
-                                -- Ctrl+click: Toggle selection
+                                -- Ctrl+click: Toggle selection, keep the rest
                                 if is_selected then
                                     if alt_pressed then
                                         -- Ctrl+Alt+click on selected: toggle second_pass, keep selected
                                         selected_items[item].second_pass = not (selected_items[item].second_pass or false)
                                     else
                                         -- Ctrl+click on selected: unselect
-                                        selected_items[item] = nil
-                                        for i, v in ipairs(selected_items_list) do
-                                            if v == item then
-                                                table.remove(selected_items_list, i)
-                                                break
-                                            end
-                                        end
+                                        unselectItem(item)
                                     end
                                 else
-                                    -- Ctrl+click on unselected: select it
+                                    -- Ctrl+click on unselected: add to selection
                                     selected_items[item] = {}
                                     table.insert(selected_items_list, item)
                                     if alt_pressed then
                                         selected_items[item].second_pass = true
                                     end
                                 end
-                            else
-                                -- Normal click: different behavior for selected vs unselected
+
+                            elseif alt_pressed then
+                                -- Alt+click: mark/unmark second pass WITHOUT touching the rest of the selection
                                 if is_selected then
-                                    if alt_pressed then
-                                        -- Alt+click on selected: toggle second_pass, keep selected
-                                        selected_items[item].second_pass = not (selected_items[item].second_pass or false)
-                                    else
-                                        -- Normal click on selected: unselect it
-                                        selected_items[item] = nil
-                                        for i, v in ipairs(selected_items_list) do
-                                            if v == item then
-                                                table.remove(selected_items_list, i)
-                                                break
-                                            end
-                                        end
-                                    end
+                                    selected_items[item].second_pass = not (selected_items[item].second_pass or false)
+                                else
+                                    selected_items[item] = { second_pass = true }
+                                    table.insert(selected_items_list, item)
+                                end
+
+                            else
+                                -- Normal click
+                                if is_selected then
+                                    -- Normal click on selected: unselect it
+                                    unselectItem(item)
                                 else
                                     -- Click on unselected item: select only this item
                                     selected_items = {}
                                     selected_items_list = {}
                                     selected_items[item] = {}
                                     table.insert(selected_items_list, item)
-                                    if alt_pressed then
-                                        selected_items[item].second_pass = true
-                                    end
                                 end
                             end
                             
@@ -2180,6 +2228,21 @@ function renderItemTable(num_tracks)
                 end
             end
         end
+
+        mouse_over_table = any_item_hovered
+
+        -- Click on empty table space deselects all.
+        -- Done AFTER the rows so clicks on items (which make them active) never wipe the selection.
+        -- Ctrl/Shift/Alt clicks on empty space keep the selection.
+        if mouse_clicked and not any_item_hovered
+           and not ctrl_pressed and not shift_pressed and not alt_pressed
+           and not reaper.ImGui_IsAnyItemActive(ctx)
+           and not reaper.ImGui_IsPopupOpen(ctx, "ItemContextMenu")
+           and reaper.ImGui_IsWindowHovered(ctx, reaper.ImGui_HoveredFlags_ChildWindows()) then
+            selected_items = {}
+            selected_items_list = {}
+            updateRenderQueue()
+        end
         
         -- Apply drag selection if currently dragging (selection drag only, not Wwise drag)
         if currently_dragging then
@@ -2188,8 +2251,15 @@ function renderItemTable(num_tracks)
             
             if drag_clicked_item == nil then
                 -- CASE 1: Drag started from empty space (table background)
-                if ctrl_pressed then
-                    -- Ctrl+drag from empty: Additive selection - keep existing selection and add items in rect
+                if ctrl_pressed or alt_pressed then
+                    -- Ctrl/Alt+drag from empty: Additive selection - keep existing selection and add items in rect
+                    -- Restore snapshot first so un-dragged items don't stay toggled
+                    selected_items = {}
+                    selected_items_list = {}
+                    for item, props in pairs(drag_selection_snapshot) do
+                        selected_items[item] = {second_pass = props.second_pass}
+                        table.insert(selected_items_list, item)
+                    end
                     for item, _ in pairs(items_in_current_drag_rect) do
                         if not selected_items[item] then
                             selected_items[item] = {}
@@ -2197,6 +2267,8 @@ function renderItemTable(num_tracks)
                             if alt_pressed then
                                 selected_items[item].second_pass = true
                             end
+                        elseif alt_pressed and not ctrl_pressed then
+                            selected_items[item].second_pass = not (selected_items[item].second_pass or false)
                         end
                     end
                 else
@@ -2206,9 +2278,6 @@ function renderItemTable(num_tracks)
                     for item, _ in pairs(items_in_current_drag_rect) do
                         selected_items[item] = {}
                         table.insert(selected_items_list, item)
-                        if alt_pressed then
-                            selected_items[item].second_pass = true
-                        end
                     end
                 end
                 
@@ -2236,13 +2305,7 @@ function renderItemTable(num_tracks)
                                     selected_items[item].second_pass = not (selected_items[item].second_pass or false)
                                 else
                                     -- Ctrl+drag from selected: remove from selection
-                                    selected_items[item] = nil
-                                    for i, v in ipairs(selected_items_list) do
-                                        if v == item then
-                                            table.remove(selected_items_list, i)
-                                            break
-                                        end
-                                    end
+                                    unselectItem(item)
                                 end
                             end
                         end
@@ -2258,6 +2321,23 @@ function renderItemTable(num_tracks)
                             end
                         end
                     end
+
+                elseif alt_pressed then
+                    -- Alt+drag from any item: toggle second pass on items in rect, keep the rest of the selection
+                    selected_items = {}
+                    selected_items_list = {}
+                    for item, props in pairs(drag_selection_snapshot) do
+                        selected_items[item] = {second_pass = props.second_pass}
+                        table.insert(selected_items_list, item)
+                    end
+                    for item, _ in pairs(items_in_current_drag_rect) do
+                        if selected_items[item] then
+                            selected_items[item].second_pass = not (selected_items[item].second_pass or false)
+                        else
+                            selected_items[item] = { second_pass = true }
+                            table.insert(selected_items_list, item)
+                        end
+                    end
                     
                 elseif drag_started_from_selected then
                     -- CASE 2: Drag from selected item without Ctrl: Unselect items in drag rect
@@ -2270,22 +2350,10 @@ function renderItemTable(num_tracks)
                         table.insert(selected_items_list, item)
                     end
                     
-                    -- Handle items in drag rectangle
+                    -- Unselect items in rect
                     for item, _ in pairs(items_in_current_drag_rect) do
                         if selected_items[item] then
-                            if alt_pressed then
-                                -- Alt+drag from selected: toggle second_pass on selected items in rect
-                                selected_items[item].second_pass = not (selected_items[item].second_pass or false)
-                            else
-                                -- Normal drag from selected: unselect items in rect
-                                selected_items[item] = nil
-                                for i, v in ipairs(selected_items_list) do
-                                    if v == item then
-                                        table.remove(selected_items_list, i)
-                                        break
-                                    end
-                                end
-                            end
+                            unselectItem(item)
                         end
                     end
                     
@@ -2297,23 +2365,20 @@ function renderItemTable(num_tracks)
                     for item, _ in pairs(items_in_current_drag_rect) do
                         selected_items[item] = {}
                         table.insert(selected_items_list, item)
-                        if alt_pressed then
-                            selected_items[item].second_pass = true
-                        end
                     end
                 end
             end
         end
 
         -- Handle keyboard shortcuts
-        if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftCtrl()) and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_C()) then
+        if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Ctrl()) and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_C()) then
             if #selected_items_list > 0 then
                 local last_item = selected_items_list[#selected_items_list]
                 copyItemName(last_item)
             end
         end
         
-        if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Key_LeftCtrl()) and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_V()) then
+        if reaper.ImGui_IsKeyDown(ctx, reaper.ImGui_Mod_Ctrl()) and reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_V()) then
             if reaper.ImGui_IsWindowHovered(ctx) and not reaper.ImGui_IsAnyItemActive(ctx) then
                 pasteNameToItems()
             end
@@ -2855,9 +2920,6 @@ function loop()
             reaper.ImGui_Dummy(ctx, 1, 0)
             reaper.ImGui_SameLine(ctx)
             
-            if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Escape()) then
-                clearSelectedItems()
-            end
             if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_Escape()) then
                 clearSelectedItems()
             end
